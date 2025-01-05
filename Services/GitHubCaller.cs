@@ -5,22 +5,35 @@ using System.Text.Json;
 public class GitHubCaller
 {
     private readonly HttpClient _httpClient;
+    private readonly string _userRepoUrl;
 
-    public GitHubCaller(HttpClient httpClient)
+    public GitHubCaller(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
+        _userRepoUrl = configuration["GitHubApi:UserRepoUrl"] ?? "";
+
+        // Console.WriteLine($"Got UserRepoUrl template: {_userRepoUrl}");
+        if (string.IsNullOrWhiteSpace(_userRepoUrl))
+        {
+            throw new InvalidOperationException("The UserRepoUrl configuration is missing or empty.");
+        }
+
+        if (!_userRepoUrl.Contains("{username}"))
+        {
+            throw new InvalidOperationException("The UserRepoUrl does not contain the '{username}' placeholder.");
+        }
     }
 
     public async Task<Dictionary<string, int>> GetLanguageStatistics(string username)
     {
         // Fetch repos from GitHub API
-        var reposUrl = $"https://api.github.com/users/{username}/repos";
+        var reposUrl = _userRepoUrl.Replace("{username}", username);
         var repos = await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl);
 
         if (repos == null || repos.Count == 0)
         {
-            return new Dictionary<string, int>();
+            return [];
         }
 
         // Analyze languages
@@ -29,6 +42,7 @@ public class GitHubCaller
         {
             if (!string.IsNullOrEmpty(repo.Language))
             {
+                Console.WriteLine($"repo: {repo}, repo.Language: {repo.Language}");
                 if (languageStats.ContainsKey(repo.Language))
                 {
                     languageStats[repo.Language]++;
@@ -46,6 +60,6 @@ public class GitHubCaller
 
 public class GitHubRepo
 {
-    public string Name { get; set; }
+    public required string Name { get; set; }
     public string? Language { get; set; } // Language is nullable
 }
