@@ -1,0 +1,45 @@
+# Temporary files
+*.swp
+*.*~
+.DS_Store
+
+# Logs
+*.log
+*.tlog
+
+# Package files
+*.nupkg
+*.snupkg
+nupkg/
+
+# IDE-specific folders
+.vscode/
+.idea/
+.vs/
+
+# User-specific files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+bin/
+obj/
+
+# Publish output
+out/
+app.publish/
+
+# Dependencies
+*.dll
+*.exe
+*.pdb
+*.mdb
+
+# ASP.NET-specific
+wwwroot/
+
+# Configurations
+appsettings.Development.json
+appsettings.Production.json
