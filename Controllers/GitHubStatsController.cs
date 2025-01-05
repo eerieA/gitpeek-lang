@@ -14,7 +14,10 @@ public class GitHubStatsController : ControllerBase
     [HttpGet("{username}")]
     public async Task<IActionResult> GetLanguageStats(string username)
     {
-        var stats = await _gitHubCaller.GetLanguageStatistics(username);
+        var parameters = new Dictionary<string, string> {
+            {"username", username}
+        };
+        var stats = await _gitHubCaller.GetLanguageStatistics(parameters);
         if (stats.Count == 0)
         {
             return NotFound(new { message = "No repositories found or invalid username." });

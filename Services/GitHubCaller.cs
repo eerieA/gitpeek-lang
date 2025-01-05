@@ -1,34 +1,36 @@
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 public class GitHubCaller
 {
     private readonly HttpClient _httpClient;
-    private readonly string _userRepoUrl;
+    private readonly string _userRepoUrlTemplate;
 
     public GitHubCaller(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
-        _userRepoUrl = configuration["GitHubApi:UserRepoUrl"] ?? "";
+        _userRepoUrlTemplate = configuration["GitHubApi:UserRepoUrl"] ?? "";
 
-        // Console.WriteLine($"Got UserRepoUrl template: {_userRepoUrl}");
-        if (string.IsNullOrWhiteSpace(_userRepoUrl))
+        if (string.IsNullOrWhiteSpace(_userRepoUrlTemplate))
         {
             throw new InvalidOperationException("The UserRepoUrl configuration is missing or empty.");
         }
 
-        if (!_userRepoUrl.Contains("{username}"))
+        if (!Regex.IsMatch(_userRepoUrlTemplate, @"\{(\w+)\}"))
         {
-            throw new InvalidOperationException("The UserRepoUrl does not contain the '{username}' placeholder.");
+            throw new InvalidOperationException("The UserRepoUrl does not contain valid placeholders (e.g., {username}).");
         }
+
+        // Console.WriteLine($"GitHub User Repo URL Template: {_userRepoUrlTemplate}");
     }
 
-    public async Task<Dictionary<string, int>> GetLanguageStatistics(string username)
+    public async Task<Dictionary<string, int>> GetLanguageStatistics(Dictionary<string, string> parameters)
     {
         // Fetch repos from GitHub API
-        var reposUrl = _userRepoUrl.Replace("{username}", username);
+        var reposUrl = ReplacePlaceholders(_userRepoUrlTemplate, parameters);
         var repos = await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl);
 
         if (repos == null || repos.Count == 0)
@@ -56,6 +58,20 @@ public class GitHubCaller
 
         return languageStats;
     }
+    
+    private string ReplacePlaceholders(string template, Dictionary<string, string> parameters)
+        {
+            return Regex.Replace(template, @"\{(\w+)\}", match =>
+            {
+                var key = match.Groups[1].Value; // Extract the placeholder name
+                if (parameters.TryGetValue(key, out var value))
+                {
+                    return value; // Replace with the corresponding value
+                }
+
+                throw new InvalidOperationException($"Missing value for placeholder '{key}' in the template.");
+            });
+        }
 }
 
 public class GitHubRepo
