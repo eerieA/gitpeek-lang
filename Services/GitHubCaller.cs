@@ -3,6 +3,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+public static partial class RegexHelper
+{
+    [GeneratedRegex(@"\{(\w+)\}")]
+    public static partial Regex PlaceholderRegex();
+}
+
 public class GitHubCaller
 {
     private readonly HttpClient _httpClient;
@@ -58,20 +64,20 @@ public class GitHubCaller
 
         return languageStats;
     }
-    
-    private string ReplacePlaceholders(string template, Dictionary<string, string> parameters)
-        {
-            return Regex.Replace(template, @"\{(\w+)\}", match =>
-            {
-                var key = match.Groups[1].Value; // Extract the placeholder name
-                if (parameters.TryGetValue(key, out var value))
-                {
-                    return value; // Replace with the corresponding value
-                }
 
-                throw new InvalidOperationException($"Missing value for placeholder '{key}' in the template.");
-            });
-        }
+    private static string ReplacePlaceholders(string template, Dictionary<string, string> parameters)
+    {
+        return RegexHelper.PlaceholderRegex().Replace(template, match =>
+        {
+            var key = match.Groups[1].Value; // Extract the placeholder name
+            if (parameters.TryGetValue(key, out var value))
+            {
+                return value; // Replace with the corresponding value
+            }
+
+            throw new InvalidOperationException($"Missing value for placeholder '{key}' in the template.");
+        });
+    }
 }
 
 public class GitHubRepo
