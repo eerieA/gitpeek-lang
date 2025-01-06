@@ -11,34 +11,37 @@ public static partial class RegexHelper
     public static partial Regex PlaceholderRegex();
 }
 
+// TODO: Deal with GitHub's specific error message 403 (rate limit exceeded), for both get stats functions
 public class GitHubCaller
 {
     private readonly HttpClient _httpClient;
-    private readonly string _userRepoUrlTemplate;
+    private readonly string _UserReposUrlTemplate;
+    private readonly string _RepoLanguagesUrlTemplate;
 
     public GitHubCaller(HttpClient httpClient, IConfiguration configuration)
     {
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
-        _userRepoUrlTemplate = configuration["GitHubApi:UserRepoUrl"] ?? "";
+        _UserReposUrlTemplate = configuration["GitHubApi:UserReposUrl"] ?? "";
 
-        if (string.IsNullOrWhiteSpace(_userRepoUrlTemplate))
+        if (string.IsNullOrWhiteSpace(_UserReposUrlTemplate))
         {
-            throw new InvalidOperationException("The UserRepoUrl configuration is missing or empty.");
+            throw new InvalidOperationException("The UserReposUrl configuration is missing or empty.");
         }
 
-        if (!Regex.IsMatch(_userRepoUrlTemplate, @"\{(\w+)\}"))
+        // Console.WriteLine($"GitHub User Repo URL Template: {_UserReposUrlTemplate}");
+        _RepoLanguagesUrlTemplate = configuration["GitHubApi:RepoLanguagesUrl"] ?? "";
+        if (string.IsNullOrWhiteSpace(_RepoLanguagesUrlTemplate))
         {
-            throw new InvalidOperationException("The UserRepoUrl does not contain valid placeholders (e.g., {username}).");
+            throw new InvalidOperationException("The RepoLanguagesUrl configuration is missing or empty.");
         }
 
-        // Console.WriteLine($"GitHub User Repo URL Template: {_userRepoUrlTemplate}");
     }
 
     public async Task<Dictionary<string, int>> GetLanguageStatistics(Dictionary<string, string> parameters)
     {
         // Fetch repos from GitHub API
-        var reposUrl = ReplacePlaceholders(_userRepoUrlTemplate, parameters);
+        var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
         var repos = await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl);
 
         if (repos == null || repos.Count == 0)
@@ -52,7 +55,7 @@ public class GitHubCaller
         {
             if (!string.IsNullOrEmpty(repo.Language))
             {
-                Console.WriteLine($"repo: {repo}, repo.Language: {repo.Language}");
+                Console.WriteLine($"repo.Name: {repo.Name}, repo.Language: {repo.Language}");
                 if (languageStats.ContainsKey(repo.Language))
                 {
                     languageStats[repo.Language]++;
@@ -66,6 +69,61 @@ public class GitHubCaller
 
         return languageStats;
     }
+
+public async Task<Dictionary<string, long>> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
+{
+    // Fetch repos from GitHub API
+    var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
+    var repos = await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl);
+
+    if (repos == null || repos.Count == 0)
+    {
+        return new Dictionary<string, long>();
+    }
+
+    // Initialize a dictionary to hold aggregated language statistics
+    var languageStats = new Dictionary<string, long>();
+
+    Console.WriteLine($"User {parameters["username"]} has {repos.Count} repos.");
+    foreach (var repo in repos)
+    {
+        if (string.IsNullOrEmpty(repo.Name))
+        {
+            continue;
+        }
+
+        // Prepare the language API URL for the current repository
+        var repoLanguagesUrl = ReplacePlaceholders(_RepoLanguagesUrlTemplate, new Dictionary<string, string>
+        {
+            { "username", parameters["username"] },
+            { "reponame", repo.Name }
+        });
+
+        // Fetch language details for the repository
+        var repoLanguages = await _httpClient.GetFromJsonAsync<Dictionary<string, long>>(repoLanguagesUrl);
+
+        Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
+        if (repoLanguages == null || repoLanguages.Count == 0)
+        {
+            continue;
+        }
+
+        // Aggregate language statistics
+        foreach (var (language, count) in repoLanguages)
+        {
+            if (languageStats.ContainsKey(language))
+            {
+                languageStats[language] += count;
+            }
+            else
+            {
+                languageStats[language] = count;
+            }
+        }
+    }
+
+    return languageStats;
+}
 
     private static string ReplacePlaceholders(string template, Dictionary<string, string> parameters)
     {
