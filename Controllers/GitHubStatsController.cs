@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using gitpeek_lang.Services;
+
+namespace gitpeek_lang.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]

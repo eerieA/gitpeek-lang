@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+namespace gitpeek_lang.Services;
+
 public static partial class RegexHelper
 {
     [GeneratedRegex(@"\{(\w+)\}")]
