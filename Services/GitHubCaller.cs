@@ -20,8 +20,12 @@ public class GitHubCaller
 
     public GitHubCaller(HttpClient httpClient, IConfiguration configuration)
     {
+        // Configure http call
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
+        _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", configuration["GitHubApi:Version"]);
+
+
         _UserReposUrlTemplate = configuration["GitHubApi:UserReposUrl"] ?? "";
 
         if (string.IsNullOrWhiteSpace(_UserReposUrlTemplate))
