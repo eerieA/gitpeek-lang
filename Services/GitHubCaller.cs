@@ -134,7 +134,7 @@ public class GitHubCaller
 
     public async Task<Dictionary<string, long>> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
     {
-        return await GitHubApiHelper.CallApiWithErrorHandling (
+        return await GitHubApiHelper.CallApiWithErrorHandling(
         // First arg function: Make the API call
         async () =>
         {
@@ -156,7 +156,8 @@ public class GitHubCaller
             return new Dictionary<string, long> { { "Error", (long)GitHubApiErrorCodes.OtherError } };
         },
         // Third arg function: Process successful response
-        async (response) => {
+        async (response) =>
+        {
             // Fetch repos from GitHub API
             var repos = await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
 
