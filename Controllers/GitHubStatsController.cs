@@ -20,7 +20,7 @@ public class GitHubStatsController : ControllerBase
         var parameters = new Dictionary<string, string> {
             {"username", username}
         };
-        var stats = await _gitHubCaller.GetLanguageStatistics(parameters);
+        var stats = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
         if (stats.Count == 0)
         {
             return NotFound(new { message = "No repositories found or invalid username." });
