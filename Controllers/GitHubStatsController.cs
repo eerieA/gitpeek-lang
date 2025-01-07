@@ -20,12 +20,19 @@ public class GitHubStatsController : ControllerBase
         var parameters = new Dictionary<string, string> {
             {"username", username}
         };
-        var stats = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
-        if (stats.Count == 0)
+
+        var (stats, errorCode) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+
+        if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            return NotFound(new { message = "No repositories found or response error occurred." });
+            return StatusCode(429, new { message = "Rate limit exceeded.", errorCode = errorCode });
         }
 
-        return Ok(stats);
+        if (stats.Count == 0)
+        {
+            return NotFound(new { message = "No repositories found or response error occurred.", errorCode = errorCode });
+        }
+
+        return Ok(new { stats, errorCode });
     }
 }

@@ -13,6 +13,7 @@ public static partial class RegexHelper
 
 public enum GitHubApiErrorCodes
 {
+    NoError = 200,
     RateLimitExceeded = 1001,
     OtherError = 1002
 }
@@ -44,7 +45,7 @@ public class GitHubApiHelper
             throw;
         }
     }
-    
+
     public static async Task<(TResult?, GitHubApiErrorCodes)> CallApiSimple<TResult>(
         Func<Task<HttpResponseMessage>> apiCall,
         Func<Task<TResult>> onSuccess,
@@ -95,7 +96,7 @@ public class GitHubApiHelper
         }
         catch (Exception ex)
         {
-                        Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
+            Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
             return (defaultOnError, GitHubApiErrorCodes.OtherError);
         }
     }
@@ -130,7 +131,7 @@ public class GitHubCaller
 
     }
 
-    public async Task<Dictionary<string, int>> GetLanguageStatistics(Dictionary<string, string> parameters)
+    public async Task<(Dictionary<string, int> stats, GitHubApiErrorCodes errorCode)> GetLanguageStatistics(Dictionary<string, string> parameters)
     {
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
@@ -142,20 +143,17 @@ public class GitHubCaller
 
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            Console.WriteLine("Rate limit exceeded while fetching repositories. Aborting operation.");
-            return new Dictionary<string, int>(); // Early exit on rate limit error
+            Console.WriteLine("Rate limit exceeded while fetching repositories.");
+            return (new Dictionary<string, int>(), GitHubApiErrorCodes.RateLimitExceeded); // Return empty stats and rate limit error
         }
 
         if (repos == null || repos.Count == 0)
         {
             Console.WriteLine($"No repositories found for user {parameters["username"]}.");
-            return new Dictionary<string, int>();
+            return (new Dictionary<string, int>(), GitHubApiErrorCodes.OtherError); // Return empty stats and other error
         }
 
-        Console.WriteLine($"Got {repos.Count} repos from user {parameters["username"]}.");
-
         var languageStats = new Dictionary<string, int>();
-
         foreach (var repo in repos)
         {
             if (!string.IsNullOrEmpty(repo.Language))
@@ -172,10 +170,10 @@ public class GitHubCaller
             }
         }
 
-        return languageStats;
+        return (languageStats, GitHubApiErrorCodes.NoError); // No error, return stats
     }
-    
-    public async Task<Dictionary<string, long>> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
+
+    public async Task<(Dictionary<string, long> stats, GitHubApiErrorCodes errorCode)> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
     {
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
@@ -188,13 +186,13 @@ public class GitHubCaller
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
             Console.WriteLine("Rate limit exceeded while fetching repositories. Aborting operation.");
-            return new Dictionary<string, long>(); // Early exit on rate limit error
+            return (new Dictionary<string, long>(), GitHubApiErrorCodes.RateLimitExceeded); // Return empty stats and rate limit error
         }
 
         if (repos == null || repos.Count == 0)
         {
             Console.WriteLine($"No repositories found for user {parameters["username"]}.");
-            return new Dictionary<string, long>();
+            return (new Dictionary<string, long>(), GitHubApiErrorCodes.OtherError); // Return empty stats and other error
         }
 
         Console.WriteLine($"Got {repos.Count} repos from user {parameters["username"]}.");
@@ -224,8 +222,8 @@ public class GitHubCaller
 
             if (repoError == GitHubApiErrorCodes.RateLimitExceeded)
             {
-                Console.WriteLine($"Rate limit likely exceeded while fetching languages for repo {repo.Name}. Stopping further API calls.");
-                break;
+                Console.WriteLine("Rate limit might have exceeded. Stopping further API calls.");
+                return (languageStats, GitHubApiErrorCodes.RateLimitExceeded); // Return stats so far and rate limit error
             }
 
             if (repoLanguages != null)
@@ -244,7 +242,7 @@ public class GitHubCaller
             }
         }
 
-        return languageStats;
+        return (languageStats, GitHubApiErrorCodes.NoError); // No error, return stats
     }
 
     private static string ReplacePlaceholders(string template, Dictionary<string, string> parameters)
