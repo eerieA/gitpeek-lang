@@ -23,7 +23,7 @@ public class GitHubStatsController : ControllerBase
         var stats = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
         if (stats.Count == 0)
         {
-            return NotFound(new { message = "No repositories found or invalid username." });
+            return NotFound(new { message = "No repositories found or response error occurred." });
         }
 
         return Ok(stats);

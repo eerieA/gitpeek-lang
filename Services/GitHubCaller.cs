@@ -45,32 +45,57 @@ public class GitHubApiHelper
         }
     }
     
-    public static async Task<(T? result, GitHubApiErrorCodes? errorCode)> CallApiSimple<T>(
+    public static async Task<(TResult?, GitHubApiErrorCodes)> CallApiSimple<TResult>(
         Func<Task<HttpResponseMessage>> apiCall,
-        Func<Task<T>> processSuccess,
-        T? defaultOnError = default)
+        Func<Task<TResult>> onSuccess,
+        TResult defaultOnError)
     {
         try
         {
+            // Execute the API call
             var response = await apiCall();
 
+            // Inspect the response for errors
             if (!response.IsSuccessStatusCode)
             {
+                // Check for rate limit exceeded
                 if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
                 {
-                    Console.WriteLine("Rate limit might have exceeded.");
-                    return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded);
+                    // Check the X-RateLimit-Remaining header
+                    var rateLimitRemaining = response.Headers.Contains("X-RateLimit-Remaining")
+                        ? response.Headers.GetValues("X-RateLimit-Remaining").FirstOrDefault()
+                        : null;
+
+                    if (rateLimitRemaining == "0")
+                    {
+                        Console.WriteLine("Rate limit exceeded based on X-RateLimit-Remaining header.");
+                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded);
+                    }
+
+                    // Check the response body for rate limit message
+                    var content = await response.Content.ReadAsStringAsync();
+                    if (content.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
+                    {
+                        Console.WriteLine("Rate limit exceeded based on response body.");
+                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded);
+                    }
+
+                    Console.WriteLine("Forbidden: Access denied or another issue.");
+                    return (defaultOnError, GitHubApiErrorCodes.OtherError);
                 }
 
-                Console.WriteLine($"API call failed with status code {response.StatusCode}");
+                // Handle other HTTP errors
+                Console.WriteLine($"API call failed with status code {response.StatusCode}.");
                 return (defaultOnError, GitHubApiErrorCodes.OtherError);
             }
 
-            return (await processSuccess(), null);
+            // If successful, process the response
+            var result = await onSuccess();
+            return (result, GitHubApiErrorCodes.OtherError); // Success; no error code needed
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Exception during API call: {ex.Message}");
+                        Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
             return (defaultOnError, GitHubApiErrorCodes.OtherError);
         }
     }
@@ -107,72 +132,68 @@ public class GitHubCaller
 
     public async Task<Dictionary<string, int>> GetLanguageStatistics(Dictionary<string, string> parameters)
     {
-        return await GitHubApiHelper.CallApiWithErrorHandling(
-        // First arg function: Make the API call
-        async () =>
+        var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
+
+        var (repos, errorCode) = await GitHubApiHelper.CallApiSimple(
+            () => _httpClient.GetAsync(reposUrl),
+            async () => await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl),
+            new List<GitHubRepo>()
+        );
+
+        if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
-            return await _httpClient.GetAsync(reposUrl);
-        },
-        // Second arg function: Handle errors
-        async (response) =>
+            Console.WriteLine("Rate limit exceeded while fetching repositories. Aborting operation.");
+            return new Dictionary<string, int>(); // Early exit on rate limit error
+        }
+
+        if (repos == null || repos.Count == 0)
         {
-            var content = await response.Content.ReadAsStringAsync();
+            Console.WriteLine($"No repositories found for user {parameters["username"]}.");
+            return new Dictionary<string, int>();
+        }
 
-            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
-            {
-                Console.WriteLine($"Rate limit exceeded: {content}");
-                return new Dictionary<string, int> { { "Error", (int)GitHubApiErrorCodes.RateLimitExceeded } };
-            }
+        Console.WriteLine($"Got {repos.Count} repos from user {parameters["username"]}.");
 
-            Console.WriteLine($"API call failed with status code {response.StatusCode}: {content}");
-            return new Dictionary<string, int> { { "Error", (int)GitHubApiErrorCodes.OtherError } };
-        },
-        // Third arg function: Process successful response
-        async (response) =>
+        var languageStats = new Dictionary<string, int>();
+
+        foreach (var repo in repos)
         {
-            var repos = await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
-
-            if (repos == null || repos.Count == 0)
+            if (!string.IsNullOrEmpty(repo.Language))
             {
-                return new Dictionary<string, int>();
-            }
-
-            var languageStats = new Dictionary<string, int>();
-            foreach (var repo in repos)
-            {
-                if (!string.IsNullOrEmpty(repo.Language))
+                Console.WriteLine($"repo.Name: {repo.Name}, repo.Language: {repo.Language}");
+                if (languageStats.ContainsKey(repo.Language))
                 {
-                    Console.WriteLine($"repo.Name: {repo.Name}, repo.Language: {repo.Language}");
-                    if (languageStats.ContainsKey(repo.Language))
-                    {
-                        languageStats[repo.Language]++;
-                    }
-                    else
-                    {
-                        languageStats[repo.Language] = 1;
-                    }
+                    languageStats[repo.Language]++;
+                }
+                else
+                {
+                    languageStats[repo.Language] = 1;
                 }
             }
-
-            return languageStats;
         }
-        );
+
+        return languageStats;
     }
     
     public async Task<Dictionary<string, long>> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
     {
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
-        var (repos, reposError) = await GitHubApiHelper.CallApiSimple(
+        var (repos, errorCode) = await GitHubApiHelper.CallApiSimple(
             () => _httpClient.GetAsync(reposUrl),
             async () => await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl),
-            defaultOnError: new List<GitHubRepo>()
+            new List<GitHubRepo>()
         );
 
-        if (reposError != null || repos == null || repos.Count == 0)
+        if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            Console.WriteLine($"Failed to get repositories for user {parameters["username"]}, or they have 0 repo.");
+            Console.WriteLine("Rate limit exceeded while fetching repositories. Aborting operation.");
+            return new Dictionary<string, long>(); // Early exit on rate limit error
+        }
+
+        if (repos == null || repos.Count == 0)
+        {
+            Console.WriteLine($"No repositories found for user {parameters["username"]}.");
             return new Dictionary<string, long>();
         }
 
@@ -198,12 +219,12 @@ public class GitHubCaller
             var (repoLanguages, repoError) = await GitHubApiHelper.CallApiSimple(
                 () => _httpClient.GetAsync(repoLanguagesUrl),
                 async () => await _httpClient.GetFromJsonAsync<Dictionary<string, long>>(repoLanguagesUrl),
-                defaultOnError: null
+                null
             );
 
             if (repoError == GitHubApiErrorCodes.RateLimitExceeded)
             {
-                Console.WriteLine("Rate limit might have exceeded. Stopping further API calls.");
+                Console.WriteLine($"Rate limit likely exceeded while fetching languages for repo {repo.Name}. Stopping further API calls.");
                 break;
             }
 
