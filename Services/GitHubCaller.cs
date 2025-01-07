@@ -44,9 +44,38 @@ public class GitHubApiHelper
             throw;
         }
     }
+    
+    public static async Task<(T? result, GitHubApiErrorCodes? errorCode)> CallApiSimple<T>(
+        Func<Task<HttpResponseMessage>> apiCall,
+        Func<Task<T>> processSuccess,
+        T? defaultOnError = default)
+    {
+        try
+        {
+            var response = await apiCall();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    Console.WriteLine("Rate limit might have exceeded.");
+                    return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded);
+                }
+
+                Console.WriteLine($"API call failed with status code {response.StatusCode}");
+                return (defaultOnError, GitHubApiErrorCodes.OtherError);
+            }
+
+            return (await processSuccess(), null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Exception during API call: {ex.Message}");
+            return (defaultOnError, GitHubApiErrorCodes.OtherError);
+        }
+    }
 }
 
-// TODO: Refactor the onError functions for both versions of get stats to be synomymous
 public class GitHubCaller
 {
     private readonly HttpClient _httpClient;
@@ -59,7 +88,6 @@ public class GitHubCaller
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", configuration["GitHubApi:Version"]);
-
 
         _UserReposUrlTemplate = configuration["GitHubApi:UserReposUrl"] ?? "";
 
@@ -131,69 +159,56 @@ public class GitHubCaller
         }
         );
     }
-
+    
     public async Task<Dictionary<string, long>> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
     {
-        return await GitHubApiHelper.CallApiWithErrorHandling(
-        // First arg function: Make the API call
-        async () =>
-        {
-            var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
-            return await _httpClient.GetAsync(reposUrl);
-        },
-        // Second arg function: Handle errors
-        async (response) =>
-        {
-            var content = await response.Content.ReadAsStringAsync();
+        var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
-            if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+        var (repos, reposError) = await GitHubApiHelper.CallApiSimple(
+            () => _httpClient.GetAsync(reposUrl),
+            async () => await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl),
+            defaultOnError: new List<GitHubRepo>()
+        );
+
+        if (reposError != null || repos == null || repos.Count == 0)
+        {
+            Console.WriteLine($"Failed to get repositories for user {parameters["username"]}, or they have 0 repo.");
+            return new Dictionary<string, long>();
+        }
+
+        Console.WriteLine($"Got {repos.Count} repos from user {parameters["username"]}.");
+
+        var languageStats = new Dictionary<string, long>();
+
+        foreach (var repo in repos)
+        {
+            if (string.IsNullOrEmpty(repo.Name))
             {
-                Console.WriteLine($"Rate limit exceeded: {content}");
-                return new Dictionary<string, long> { { "Error", (long)GitHubApiErrorCodes.RateLimitExceeded } };
+                continue;
             }
 
-            Console.WriteLine($"API call failed with status code {response.StatusCode}: {content}");
-            return new Dictionary<string, long> { { "Error", (long)GitHubApiErrorCodes.OtherError } };
-        },
-        // Third arg function: Process successful response
-        async (response) =>
-        {
-            // Fetch repos from GitHub API
-            var repos = await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
-
-            if (repos == null || repos.Count == 0)
+            var repoLanguagesUrl = ReplacePlaceholders(_RepoLanguagesUrlTemplate, new Dictionary<string, string>
             {
-                return new Dictionary<string, long>();
+                { "username", parameters["username"] },
+                { "reponame", repo.Name }
+            });
+
+            Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
+
+            var (repoLanguages, repoError) = await GitHubApiHelper.CallApiSimple(
+                () => _httpClient.GetAsync(repoLanguagesUrl),
+                async () => await _httpClient.GetFromJsonAsync<Dictionary<string, long>>(repoLanguagesUrl),
+                defaultOnError: null
+            );
+
+            if (repoError == GitHubApiErrorCodes.RateLimitExceeded)
+            {
+                Console.WriteLine("Rate limit might have exceeded. Stopping further API calls.");
+                break;
             }
 
-            // Initialize a dictionary to hold aggregated language statistics
-            var languageStats = new Dictionary<string, long>();
-
-            Console.WriteLine($"User {parameters["username"]} has {repos.Count} repos.");
-            foreach (var repo in repos)
+            if (repoLanguages != null)
             {
-                if (string.IsNullOrEmpty(repo.Name))
-                {
-                    continue;
-                }
-
-                // Prepare the language API URL for the current repository
-                var repoLanguagesUrl = ReplacePlaceholders(_RepoLanguagesUrlTemplate, new Dictionary<string, string>
-                {
-                    { "username", parameters["username"] },
-                    { "reponame", repo.Name }
-                });
-
-                // Fetch language details for the repository
-                var repoLanguages = await _httpClient.GetFromJsonAsync<Dictionary<string, long>>(repoLanguagesUrl);
-
-                Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
-                if (repoLanguages == null || repoLanguages.Count == 0)
-                {
-                    continue;
-                }
-
-                // Aggregate language statistics
                 foreach (var (language, count) in repoLanguages)
                 {
                     if (languageStats.ContainsKey(language))
@@ -206,10 +221,9 @@ public class GitHubCaller
                     }
                 }
             }
-
-            return languageStats;
         }
-        );
+
+        return languageStats;
     }
 
     private static string ReplacePlaceholders(string template, Dictionary<string, string> parameters)
