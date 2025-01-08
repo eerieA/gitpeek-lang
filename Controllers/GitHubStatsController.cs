@@ -25,7 +25,7 @@ public class GitHubStatsController : ControllerBase
 
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            return StatusCode(429, new { message = "Rate limit exceeded.", errorCode = errorCode });
+            return StatusCode(429, new { message = "Rate limit exceeded. If you are not using your GitHub access token then that may be the cause.", errorCode = errorCode });
         }
 
         if (stats.Count == 0)

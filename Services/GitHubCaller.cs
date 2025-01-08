@@ -103,6 +103,7 @@ public class GitHubApiHelper
 public class GitHubCaller
 {
     private readonly HttpClient _httpClient;
+    private readonly string _AccessToken;
     private readonly string _UserReposUrlTemplate;
     private readonly string _RepoLanguagesUrlTemplate;
 
@@ -112,6 +113,15 @@ public class GitHubCaller
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", configuration["GitHubApi:Version"]);
+        
+        _AccessToken = configuration["GitHubApi:AccessToken"] ?? "";
+        
+        if (!string.IsNullOrWhiteSpace(_AccessToken))
+        {
+            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _AccessToken);
+        } else {
+            Console.WriteLine("User is not using an access token. Rate limit will be low.");
+        }
 
         _UserReposUrlTemplate = configuration["GitHubApi:UserReposUrl"] ?? "";
 
