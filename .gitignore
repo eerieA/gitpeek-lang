@@ -30,6 +30,7 @@ obj/
 # Publish output
 out/
 app.publish/
+publish/
 
 # Dependencies
 *.dll
@@ -43,3 +44,6 @@ wwwroot/
 # Configurations
 appsettings.Development.json
 appsettings.Production.json
+
+# Provider configurations
+.azure/
