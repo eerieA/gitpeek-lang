@@ -4,8 +4,9 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddHttpClient<GitHubCaller>();
 builder.Services.AddControllers();
+builder.Services.AddHttpClient<GitHubCaller>();
+builder.Services.AddTransient<GraphMaker>();
 
 var app = builder.Build();
 
