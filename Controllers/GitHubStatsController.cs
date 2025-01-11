@@ -45,7 +45,8 @@ public class GitHubStatsController : ControllerBase
     public async Task<IActionResult> GetLanguageGraph(
         string username,
         [FromQuery] int? width = null,
-        [FromQuery] int? height = null)
+        [FromQuery] int? barHeight = null,
+        [FromQuery] int? lgItemWidth = null)
     {
         var parameters = new Dictionary<string, string> {
             {"username", username}
@@ -66,8 +67,9 @@ public class GitHubStatsController : ControllerBase
         // Generate SVG graph with legend
         var svg = _graphMaker.GenerateSvgWithLegend(
             stats,
-            width ?? 600,    // Default width if not specified
-            height ?? 50     // Default height if not specified
+            width ?? 600,           // Default width if not specified
+            barHeight ?? 50,        // Default bar height if not specified
+            lgItemWidth ?? 120     // Default legend item width if not specified
         );
 
         return Content(svg, "image/svg+xml");

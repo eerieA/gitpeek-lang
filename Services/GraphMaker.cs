@@ -7,11 +7,10 @@ namespace gitpeek_lang.Services;
 
 public class GraphMaker
 {
-    private const int LegendItemWidth = 200;    //TODO adjust these constants
     private const int LegendItemHeight = 25;
     private const int LegendPadding = 10;
 
-    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width = 600, int height = 50)
+    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth)
     {
         if (languageStats == null || languageStats.Count == 0)
             return string.Empty;
@@ -19,13 +18,13 @@ public class GraphMaker
         long totalLines = languageStats.Values.Sum();
         
         // Calculate how many legend items can fit per row
-        int itemsPerRow = Math.Max(1, (width - LegendPadding * 2) / LegendItemWidth);
+        int itemsPerRow = Math.Max(1, (width - LegendPadding * 2) / lgItemWidth);
         int legendRows = (int)Math.Ceiling(languageStats.Count / (double)itemsPerRow);
         int legendHeight = legendRows * LegendItemHeight + LegendPadding * 2;
         
         // Create SVG builder
         var svgBuilder = new StringBuilder();
-        svgBuilder.AppendLine($"<svg width='{width}' height='{height + legendHeight}' xmlns='http://www.w3.org/2000/svg'>");
+        svgBuilder.AppendLine($"<svg width='{width}' height='{barHeight + legendHeight}' xmlns='http://www.w3.org/2000/svg'>");
         
         // Draw the percentage bars
         double x = 0.0;
@@ -37,7 +36,7 @@ public class GraphMaker
             
             svgBuilder.AppendFormat(
                 "<rect x='{0}' y='0' width='{1}' height='{2}' fill='{3}' />",
-                x, barWidth, height, color);
+                x, barWidth, barHeight, color);
             
             x += barWidth;
         }
@@ -52,8 +51,8 @@ public class GraphMaker
             string color = GetColorForLanguage(language);
             
             // Calculate position for this legend item
-            int itemX = LegendPadding + (currentCol * LegendItemWidth);
-            int itemY = height + LegendPadding + (currentRow * LegendItemHeight);
+            int itemX = LegendPadding + (currentCol * lgItemWidth);
+            int itemY = barHeight + LegendPadding + (currentRow * LegendItemHeight);
             
             // Color box
             svgBuilder.AppendFormat(
