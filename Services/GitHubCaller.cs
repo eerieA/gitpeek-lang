@@ -113,39 +113,39 @@ public class GitHubCaller
         _httpClient = httpClient;
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", configuration["GitHubApi:Version"]);
-        
+
         _AccessToken = configuration["GitHubApi:AccessToken"] ?? "";
-        
-        if (!string.IsNullOrWhiteSpace(_AccessToken))
+
+        if (string.IsNullOrWhiteSpace(_AccessToken))
         {
-            _httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _AccessToken);
-        } else {
             Console.WriteLine("User is not using an access token. Rate limit will be low.");
         }
 
         _UserReposUrlTemplate = configuration["GitHubApi:UserReposUrl"] ?? "";
-
         if (string.IsNullOrWhiteSpace(_UserReposUrlTemplate))
         {
             throw new InvalidOperationException("The UserReposUrl configuration is missing or empty.");
         }
 
-        // Console.WriteLine($"GitHub User Repo URL Template: {_UserReposUrlTemplate}");
         _RepoLanguagesUrlTemplate = configuration["GitHubApi:RepoLanguagesUrl"] ?? "";
         if (string.IsNullOrWhiteSpace(_RepoLanguagesUrlTemplate))
         {
             throw new InvalidOperationException("The RepoLanguagesUrl configuration is missing or empty.");
         }
-
     }
 
     public async Task<(Dictionary<string, int> stats, GitHubApiErrorCodes errorCode)> GetLanguageStatistics(Dictionary<string, string> parameters)
     {
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
+        // Use CallApiSimple with SendRequestWithOptionalAuth
         var (repos, errorCode) = await GitHubApiHelper.CallApiSimple(
-            () => _httpClient.GetAsync(reposUrl),
-            async () => await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl),
+            () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
+            async () => 
+            {
+                var response = await SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl);
+                return await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
+            },
             new List<GitHubRepo>()
         );
 
@@ -185,9 +185,14 @@ public class GitHubCaller
     {
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
+        // Use CallApiSimple with SendRequestWithOptionalAuth
         var (repos, errorCode) = await GitHubApiHelper.CallApiSimple(
-            () => _httpClient.GetAsync(reposUrl),
-            async () => await _httpClient.GetFromJsonAsync<List<GitHubRepo>>(reposUrl),
+            () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
+            async () => 
+            {
+                var response = await SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl);
+                return await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
+            },
             new List<GitHubRepo>()
         );
 
@@ -223,7 +228,7 @@ public class GitHubCaller
             Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
 
             var (repoLanguages, repoError) = await GitHubApiHelper.CallApiSimple(
-                () => _httpClient.GetAsync(repoLanguagesUrl),
+                () => SendRequestWithOptionalAuth(HttpMethod.Get, repoLanguagesUrl),
                 async () => await _httpClient.GetFromJsonAsync<Dictionary<string, long>>(repoLanguagesUrl),
                 null
             );
@@ -251,6 +256,26 @@ public class GitHubCaller
         }
 
         return (languageStats, GitHubApiErrorCodes.NoError); // No error, return stats
+    }
+
+    private Task<HttpResponseMessage> SendRequestWithOptionalAuth(HttpMethod method, string url)
+    {
+        var request = new HttpRequestMessage(method, url);
+
+        // Add Authorization header only if AccessToken is not empty and not equal to placeholder string
+        if (!string.IsNullOrWhiteSpace(_AccessToken) && !string.Equals(_AccessToken, "your_personal_access_token_here"))
+        {
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _AccessToken);
+        }
+
+        // Debugging: Log request details
+        Console.WriteLine($"[DEBUG] Requesting URL: {url}");
+        if (request.Headers.Authorization != null)
+        {
+            Console.WriteLine($"[DEBUG] Authorization: {request.Headers.Authorization}");
+        }
+
+        return _httpClient.SendAsync(request);
     }
 
     private static string ReplacePlaceholders(string template, Dictionary<string, string> parameters)

@@ -56,12 +56,16 @@ public class GitHubStatsController : ControllerBase
 
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            return StatusCode(429, new { message = "Rate limit exceeded. If you are not using your GitHub access token then that may be the cause.", errorCode = errorCode });
+            var errorMessage = "Rate limit exceeded. If you are not using your GitHub access token, that may be the cause.";
+            var htmlContent = $"<html><body><h1>Error 429</h1><p>{errorMessage}</p></body></html>";
+            return Content(htmlContent, "text/html");
         }
 
         if (stats.Count == 0)
         {
-            return NotFound(new { message = "No repositories found or response error occurred.", errorCode = errorCode });
+            var errorMessage = "No repositories found or response error occurred.";
+            var htmlContent = $"<html><body><h1>Error 404</h1><p>{errorMessage}</p></body></html>";
+            return Content(htmlContent, "text/html");
         }
 
         // Generate SVG graph with legend
@@ -69,7 +73,7 @@ public class GitHubStatsController : ControllerBase
             stats,
             width ?? 600,           // Default width if not specified
             barHeight ?? 50,        // Default bar height if not specified
-            lgItemWidth ?? 120     // Default legend item width if not specified
+            lgItemWidth ?? 120      // Default legend item width if not specified
         );
 
         return Content(svg, "image/svg+xml");
