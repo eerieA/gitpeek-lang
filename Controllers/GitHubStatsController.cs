@@ -54,18 +54,22 @@ public class GitHubStatsController : ControllerBase
 
         var (stats, errorCode) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
 
+        // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
+        // Dictionary<string, long> stats = [];  //DEBUG
+        // Handle rate limit error
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            var errorMessage = "Rate limit exceeded. If you are not using your GitHub access token, that may be the cause.";
-            var htmlContent = $"<html><body><h1>Error 429</h1><p>{errorMessage}</p></body></html>";
-            return Content(htmlContent, "text/html");
+            var errorMessage = "Rate limit exceeded. Please try again later.";
+            var svgError = GenerateErrorSvg(errorMessage, width ?? 600, barHeight ?? 50);
+            return Content(svgError, "image/svg+xml");
         }
 
+        // Handle no repositories or other errors
         if (stats.Count == 0)
         {
             var errorMessage = "No repositories found or response error occurred.";
-            var htmlContent = $"<html><body><h1>Error 404</h1><p>{errorMessage}</p></body></html>";
-            return Content(htmlContent, "text/html");
+            var svgError = GenerateErrorSvg(errorMessage, width ?? 600, barHeight ?? 50);
+            return Content(svgError, "image/svg+xml");
         }
 
         // Generate SVG graph with legend
@@ -77,5 +81,18 @@ public class GitHubStatsController : ControllerBase
         );
 
         return Content(svg, "image/svg+xml");
+    }
+
+    // Helper method to generate an SVG for error messages
+    private string GenerateErrorSvg(string message, int width, int barHeight)
+    {
+        var height = barHeight + 20; // Adjust height based on barHeight or other factors
+        return $@"
+            <svg xmlns='http://www.w3.org/2000/svg' width='{width}' height='{height}' viewBox='0 0 {width} {height}' style='font-family: Arial, sans-serif;'>
+                <rect width='{width}' height='{height}' fill='#ff0000' fill-opacity='10%' />
+                <text x='50%' y='50%' fill='#721c24' text-anchor='middle' alignment-baseline='middle' font-size='14'>
+                    {System.Net.WebUtility.HtmlEncode(message)}
+                </text>
+            </svg>";
     }
 }
