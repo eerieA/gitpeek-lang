@@ -59,7 +59,7 @@ public class GitHubStatsController : ControllerBase
         // Handle rate limit error
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            var errorMessage = "Rate limit exceeded. Please try again later.";
+            var errorMessage = "Rate limit exceeded. Please check GitHub's rate reset time and wait.";
             var svgError = GenerateErrorSvg(errorMessage, width ?? 600, barHeight ?? 50);
             return Content(svgError, "image/svg+xml");
         }
