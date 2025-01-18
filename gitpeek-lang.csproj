@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>gitpeek_lang</RootNamespace>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/appsettings.Development.json</DefaultItemExcludes>
+    <!-- <DefaultItemExcludes>$(DefaultItemExcludes);**/appsettings.Development.json;**/*.pfx</DefaultItemExcludes> -->
   </PropertyGroup>
 
 </Project>

@@ -47,3 +47,7 @@ appsettings.Production.json
 
 # Provider configurations
 .azure/
+
+# Securities
+.env
+*.pfx
