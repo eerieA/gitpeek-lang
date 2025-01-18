@@ -24,8 +24,8 @@ Local with docker: `docker-compose up --build`
 
 ## Dev log
 <details>
-<summary>Jan 16, 2025: Azure cost</summary>
-I only have 1 API Management rule and 1 App Service. Azure's predicted cost is $11.39 per about a month. This will not be worth it for micro apps like this one.
+<summary>Jan 18, 2025: Azure cost</summary>
+I only have 1 API Management rule and 1 App Service. Azure's predicted cost is $68.71 per about a month. This probably be good for bulk management but will not be worth it for micro apps like this one.
 <br>
 <img alt="screenshot" src="https://live.staticflickr.com/65535/54269434801_40f2951791_b.jpg" width="320">
 
