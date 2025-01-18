@@ -10,5 +10,6 @@ services:
       - ASPNETCORE_URLS=https://+:443
       - ASPNETCORE_Kestrel__Certificates__Default__Password=${CERT_PASSWORD}
       - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+      - GitHubApi:AccessToken=${GH_AC_TOKEN}
     volumes:
       - "./:/https/"
