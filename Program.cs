@@ -8,6 +8,11 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient<GitHubCaller>();
 builder.Services.AddTransient<GraphMaker>();
 
+builder.WebHost.ConfigureKestrel(options => {
+    options.ListenAnyIP(80);
+}
+);
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
