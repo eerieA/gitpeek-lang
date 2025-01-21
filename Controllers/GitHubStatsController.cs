@@ -54,7 +54,8 @@ public class GitHubStatsController : ControllerBase
         };
 
         // var (stats, errorCode) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
-        Console.WriteLine($"token: {configuration["GitHubApi:AccessToken"]}");  //DEBUG
+        Console.WriteLine($"GitHubApi:AccessToken: {configuration["GitHubApi:AccessToken"]}");  //DEBUG
+        Console.WriteLine($"GH_AC_TOKEN: {configuration["GH_AC_TOKEN"]}");  //DEBUG
 
         GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
         Dictionary<string, long> stats = [];  //DEBUG
