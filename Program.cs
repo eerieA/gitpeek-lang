@@ -24,7 +24,37 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// DEBUG
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/lib") || 
+        context.Request.Path.StartsWithSegments("/css"))
+    {
+        var physicalPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", context.Request.Path.ToString().TrimStart('/'));
+        Console.WriteLine($"Request URL: {context.Request.Path}");
+        Console.WriteLine($"Physical path: {physicalPath}");
+        Console.WriteLine($"File exists: {File.Exists(physicalPath)}");
+        Console.WriteLine($"Directory exists: {Directory.Exists(Path.GetDirectoryName(physicalPath))}");
+        Console.WriteLine($"Current directory: {Directory.GetCurrentDirectory()}");
+        // List contents of wwwroot
+        Console.WriteLine("Contents of wwwroot:");
+        foreach (var file in Directory.GetFiles(Path.Combine(Directory.GetCurrentDirectory(), "wwwroot"), "*.*", SearchOption.AllDirectories))
+        {
+            Console.WriteLine(file);
+        }
+    }
+    await next();
+});
+app.UseStaticFiles(new StaticFileOptions
+{
+    ServeUnknownFileTypes = true,
+    DefaultContentType = "application/octet-stream",
+    OnPrepareResponse = ctx =>
+    {
+        Console.WriteLine($"Serving static file: {ctx.File.PhysicalPath}");
+    }
+});
 
 app.UseRouting();
 
