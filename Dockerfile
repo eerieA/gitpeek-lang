@@ -6,16 +6,19 @@ WORKDIR /src
 COPY *.csproj ./
 RUN dotnet restore
 
+# Install LibMan CLI
+RUN dotnet tool install -g Microsoft.Web.LibraryManager.Cli
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 # Copy everything else and build
 COPY . ./
+RUN libman restore
 RUN dotnet publish -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
 WORKDIR /app
 COPY --from=build /app/publish .
-# DEBUG
-# RUN ls -la wwwroot/lib/bootstrap/dist/css/
 
 # Configure environment variables
 # Setting ASPNETCORE_URLS, or else it will not be exposed
