@@ -44,6 +44,7 @@ public class GitHubStatsController : ControllerBase
     [Produces("image/svg+xml")]
     public async Task<IActionResult> GetLanguageGraph(
         string username,
+        IConfiguration configuration,
         [FromQuery] int? width = null,
         [FromQuery] int? barHeight = null,
         [FromQuery] int? lgItemWidth = null)
@@ -53,6 +54,7 @@ public class GitHubStatsController : ControllerBase
         };
 
         var (stats, errorCode) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+        // Console.WriteLine($"GH_AC_TOKEN: {configuration["GH_AC_TOKEN"]}");  //DEBUG
 
         // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
         // Dictionary<string, long> stats = [];  //DEBUG

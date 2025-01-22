@@ -6,8 +6,13 @@ WORKDIR /src
 COPY *.csproj ./
 RUN dotnet restore
 
+# Install LibMan CLI
+RUN dotnet tool install -g Microsoft.Web.LibraryManager.Cli
+ENV PATH="${PATH}:/root/.dotnet/tools"
+
 # Copy everything else and build
 COPY . ./
+RUN libman restore
 RUN dotnet publish -c Release -o /app/publish
 
 # Runtime stage
@@ -18,7 +23,7 @@ COPY --from=build /app/publish .
 # Configure environment variables
 # Setting ASPNETCORE_URLS, or else it will not be exposed
 # Also have to generate dev cert on host machine
-ENV ASPNETCORE_URLS="https://+:443"
+ENV ASPNETCORE_URLS="http://+:80"
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Install necessary tools
@@ -28,9 +33,6 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 RUN adduser --disabled-password --gecos "" appuser && chown -R appuser /app
 USER appuser
 
-EXPOSE 443
+EXPOSE 80
 
-# Replace "MyWebApp.dll" with whatever name is in your .csproj file
-# You can find this by looking at the AssemblyName in your .csproj
-# or by checking what DLL gets created when you run 'dotnet publish'
 ENTRYPOINT ["dotnet", "gitpeek-lang.dll"]

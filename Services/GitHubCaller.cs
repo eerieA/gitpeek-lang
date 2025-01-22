@@ -114,12 +114,13 @@ public class GitHubCaller
         _httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("DotNetApp"); // GitHub API requires a User-Agent header
         _httpClient.DefaultRequestHeaders.Add("X-GitHub-Api-Version", configuration["GitHubApi:Version"]);
 
-        _AccessToken = configuration["GitHubApi:AccessToken"] ?? "";
+        _AccessToken = configuration["GH_AC_TOKEN"] ?? "";
 
         if (string.IsNullOrWhiteSpace(_AccessToken))
         {
             Console.WriteLine("User is not using an access token. Rate limit will be low.");
         }
+        Console.WriteLine("Yay we are using GH_AC_TOKEN now!");  // DEBUG
 
         _UserReposUrlTemplate = configuration["GitHubApi:UserReposUrl"] ?? "";
         if (string.IsNullOrWhiteSpace(_UserReposUrlTemplate))
@@ -272,7 +273,8 @@ public class GitHubCaller
         Console.WriteLine($"[DEBUG] Requesting URL: {url}");
         if (request.Headers.Authorization != null)
         {
-            Console.WriteLine($"[DEBUG] Authorization: {request.Headers.Authorization}");
+            // Console.WriteLine($"[DEBUG] Authorization: {request.Headers.Authorization}");
+            Console.WriteLine($"[DEBUG] Authorization _AccessToken is not null (likely valid).");
         }
 
         return _httpClient.SendAsync(request);
