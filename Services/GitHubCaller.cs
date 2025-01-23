@@ -247,7 +247,12 @@ public class GitHubCaller
             }
         }
 
-        return (languageStats, GitHubApiErrorCodes.NoError, rateLimitInfo);
+        // After aggregating, sort the languages by total count in descending order
+        var sortedLanguageStats = languageStats
+            .OrderByDescending(kvp => kvp.Value)              // Sort by the count in descending order
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);  // Convert back to dictionary
+
+        return (sortedLanguageStats, GitHubApiErrorCodes.NoError, rateLimitInfo);
     }
 
     private void ExtractRateLimitHeaders(HttpResponseHeaders? headers, Dictionary<string, string> rateLimitInfo)

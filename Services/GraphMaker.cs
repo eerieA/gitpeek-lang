@@ -90,6 +90,8 @@ public class GraphMaker
             "Python" => "#3572A5",
             "Java" => "#b07219",
             "C#" => "#178600",
+            "C++" => "#f76e6e",
+            "C" => "#fbd7a7",
             _ => "#cccccc", // Default color for unknown languages
         };
     }
