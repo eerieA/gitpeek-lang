@@ -24,7 +24,7 @@ public class GitHubStatsController : ControllerBase
             {"username", username}
         };
 
-        var (stats, errorCode) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+        var (stats, errorCode, rateLimitInfo) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
 
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
@@ -53,15 +53,16 @@ public class GitHubStatsController : ControllerBase
             {"username", username}
         };
 
-        var (stats, errorCode) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+        var (stats, errorCode, rateLimitInfo) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
         // Console.WriteLine($"GH_AC_TOKEN: {configuration["GH_AC_TOKEN"]}");  //DEBUG
 
         // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
         // Dictionary<string, long> stats = [];  //DEBUG
+
         // Handle rate limit error
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            var errorMessage = "Rate limit exceeded. Please check GitHub's rate reset time and wait.";
+            var errorMessage = $"Rate limit exceeded. Reset time: {rateLimitInfo["X-RateLimit-Reset"]}.";
             var svgError = GenerateErrorSvg(errorMessage, width ?? 600, barHeight ?? 50);
             return Content(svgError, "image/svg+xml");
         }
@@ -72,6 +73,13 @@ public class GitHubStatsController : ControllerBase
             var errorMessage = "No repositories found or response error occurred.";
             var svgError = GenerateErrorSvg(errorMessage, width ?? 600, barHeight ?? 50);
             return Content(svgError, "image/svg+xml");
+        }
+
+        // Log the rate limit info too on success
+        if (rateLimitInfo != null)
+        {
+            Console.WriteLine($"Rate Limit Remaining: {rateLimitInfo["X-RateLimit-Remaining"]}");
+            Console.WriteLine($"Rate Limit Reset: {rateLimitInfo["X-RateLimit-Reset"]}");
         }
 
         // Generate SVG graph with legend

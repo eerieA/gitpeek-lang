@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
@@ -20,33 +21,7 @@ public enum GitHubApiErrorCodes
 
 public class GitHubApiHelper
 {
-    public static async Task<T> CallApiWithErrorHandling<T>(
-        Func<Task<HttpResponseMessage>> apiCall,
-        Func<HttpResponseMessage, Task<T>> onError,
-        Func<HttpResponseMessage, Task<T>> onSuccess)
-    {
-        try
-        {
-            // Execute the API call
-            var response = await apiCall();
-
-            // Handle errors if response is not successful
-            if (!response.IsSuccessStatusCode)
-            {
-                return await onError(response);
-            }
-
-            // Process the successful response
-            return await onSuccess(response);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
-            throw;
-        }
-    }
-
-    public static async Task<(TResult?, GitHubApiErrorCodes)> CallApiSimple<TResult>(
+    public static async Task<(TResult?, GitHubApiErrorCodes, HttpResponseHeaders?)> CallApiSimple<TResult>(
         Func<Task<HttpResponseMessage>> apiCall,
         Func<Task<TResult>> onSuccess,
         TResult defaultOnError)
@@ -56,6 +31,9 @@ public class GitHubApiHelper
             // Execute the API call
             var response = await apiCall();
 
+            // Capture headers from the response
+            var headers = response.Headers;
+
             // Inspect the response for errors
             if (!response.IsSuccessStatusCode)
             {
@@ -63,39 +41,39 @@ public class GitHubApiHelper
                 if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
                 {
                     // Check the header value for rate limit message
-                    var rateLimitRemaining = response.Headers.Contains("X-RateLimit-Remaining")
-                        ? response.Headers.GetValues("X-RateLimit-Remaining").FirstOrDefault()
+                    var rateLimitRemaining = headers.Contains("X-RateLimit-Remaining")
+                        ? headers.GetValues("X-RateLimit-Remaining").FirstOrDefault()
                         : null;
 
                     if (rateLimitRemaining == "0")
                     {
-                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded);
+                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers);
                     }
 
                     // Check the response body for rate limit message
                     var content = await response.Content.ReadAsStringAsync();
                     if (content.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
                     {
-                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded);
+                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers);
                     }
 
                     Console.WriteLine("Forbidden: Access denied or another issue.");
-                    return (defaultOnError, GitHubApiErrorCodes.OtherError);
+                    return (defaultOnError, GitHubApiErrorCodes.OtherError, headers);
                 }
 
                 // Handle other HTTP errors
                 Console.WriteLine($"API call failed with status code {response.StatusCode}.");
-                return (defaultOnError, GitHubApiErrorCodes.OtherError);
+                return (defaultOnError, GitHubApiErrorCodes.OtherError, headers);
             }
 
             // If successful, process the response
             var result = await onSuccess();
-            return (result, GitHubApiErrorCodes.OtherError); // Success; no error code needed
+            return (result, GitHubApiErrorCodes.NoError, headers); // Success
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
-            return (defaultOnError, GitHubApiErrorCodes.OtherError);
+            return (defaultOnError, GitHubApiErrorCodes.OtherError, null);
         }
     }
 }
@@ -140,7 +118,7 @@ public class GitHubCaller
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
         // Use CallApiSimple with SendRequestWithOptionalAuth
-        var (repos, errorCode) = await GitHubApiHelper.CallApiSimple(
+        var (repos, errorCode, rateLimitInfo) = await GitHubApiHelper.CallApiSimple(
             () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
             async () => 
             {
@@ -182,12 +160,12 @@ public class GitHubCaller
         return (languageStats, GitHubApiErrorCodes.NoError); // No error, return stats
     }
 
-    public async Task<(Dictionary<string, long> stats, GitHubApiErrorCodes errorCode)> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
+    public async Task<(Dictionary<string, long> stats, GitHubApiErrorCodes errorCode, Dictionary<string, string> rateLimitInfo)> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
     {
+        var rateLimitInfo = new Dictionary<string, string>();
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
-        // Use CallApiSimple with SendRequestWithOptionalAuth
-        var (repos, errorCode) = await GitHubApiHelper.CallApiSimple(
+        var (repos, errorCode, headers) = await GitHubApiHelper.CallApiSimple(
             () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
             async () => 
             {
@@ -197,16 +175,21 @@ public class GitHubCaller
             new List<GitHubRepo>()
         );
 
+        // Extract rate limit info from headers
+        ExtractRateLimitHeaders(headers, rateLimitInfo);
+        Console.WriteLine($"X-RateLimit-Remaining: {rateLimitInfo["X-RateLimit-Remaining"]}.");
+
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
             Console.WriteLine("Rate limit exceeded while fetching repositories. Aborting operation.");
-            return (new Dictionary<string, long>(), GitHubApiErrorCodes.RateLimitExceeded);
+            Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
+            return (new Dictionary<string, long>(), GitHubApiErrorCodes.RateLimitExceeded, rateLimitInfo);
         }
 
         if (repos == null || repos.Count == 0)
         {
             Console.WriteLine($"No repositories found for user {parameters["username"]}.");
-            return (new Dictionary<string, long>(), GitHubApiErrorCodes.OtherError);
+            return (new Dictionary<string, long>(), GitHubApiErrorCodes.OtherError, rateLimitInfo);
         }
 
         Console.WriteLine($"Got {repos.Count} repos from user {parameters["username"]}.");
@@ -228,16 +211,24 @@ public class GitHubCaller
 
             Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
 
-            var (repoLanguages, repoError) = await GitHubApiHelper.CallApiSimple(
+            var (repoLanguages, repoError, repoHeaders) = await GitHubApiHelper.CallApiSimple(
                 () => SendRequestWithOptionalAuth(HttpMethod.Get, repoLanguagesUrl),
-                async () => await _httpClient.GetFromJsonAsync<Dictionary<string, long>>(repoLanguagesUrl),
+                async () => 
+                {
+                    var response = await _httpClient.GetAsync(repoLanguagesUrl);
+                    return await response.Content.ReadFromJsonAsync<Dictionary<string, long>>();
+                },
                 null
             );
+
+            // Extract rate limit info from repo headers
+            ExtractRateLimitHeaders(repoHeaders, rateLimitInfo);
 
             if (repoError == GitHubApiErrorCodes.RateLimitExceeded)
             {
                 Console.WriteLine("Rate limit exceeded while fetching repo languages. Stopping further API calls.");
-                return (languageStats, GitHubApiErrorCodes.RateLimitExceeded); // Return stats so far and rate limit error
+                Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
+                return (languageStats, GitHubApiErrorCodes.RateLimitExceeded, rateLimitInfo);
             }
 
             if (repoLanguages != null)
@@ -256,7 +247,22 @@ public class GitHubCaller
             }
         }
 
-        return (languageStats, GitHubApiErrorCodes.NoError); // No error, return stats
+        return (languageStats, GitHubApiErrorCodes.NoError, rateLimitInfo);
+    }
+
+    private void ExtractRateLimitHeaders(HttpResponseHeaders? headers, Dictionary<string, string> rateLimitInfo)
+    {
+        if (headers == null) return;
+
+        if (headers.TryGetValues("X-RateLimit-Remaining", out var remaining))
+        {
+            rateLimitInfo["X-RateLimit-Remaining"] = remaining.FirstOrDefault() ?? "0";
+        }
+
+        if (headers.TryGetValues("X-RateLimit-Reset", out var reset))
+        {
+            rateLimitInfo["X-RateLimit-Reset"] = reset.FirstOrDefault() ?? "0";
+        }
     }
 
     private Task<HttpResponseMessage> SendRequestWithOptionalAuth(HttpMethod method, string url)
