@@ -1,4 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
+using System;
+using System.IO;
+using System.Text.Json;
+using System.Threading.Tasks;
 using gitpeek_lang.Services;
 
 namespace gitpeek_lang.Controllers;
@@ -53,7 +57,7 @@ public class GitHubStatsController : ControllerBase
             {"username", username}
         };
 
-        var (stats, errorCode, rateLimitInfo) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+        var (stats, errorCode, rateLimitInfo) = await CacheAndRetrieveLangStats(parameters);
         // Console.WriteLine($"GH_AC_TOKEN: {configuration["GH_AC_TOKEN"]}");  //DEBUG
 
         // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
@@ -93,6 +97,53 @@ public class GitHubStatsController : ControllerBase
         return Content(svg, "image/svg+xml");
     }
 
+    public async Task<(Dictionary<string, long>, GitHubApiErrorCodes, Dictionary<string, string>)> CacheAndRetrieveLangStats(Dictionary<string, string> parameters)
+    {
+        var cacheDirectory = "Cache";
+        var cacheFilePath = Path.Combine(cacheDirectory, $"{parameters["username"]}_language_stats.json");
+        var cacheDuration = TimeSpan.FromHours(24); // Cache expires after 24 hours
+
+        var now = DateTime.UtcNow;
+
+        // Ensure the cache directory exists
+        if (!Directory.Exists(cacheDirectory))
+        {
+            Directory.CreateDirectory(cacheDirectory);
+        }
+
+        // Check if cache exists and is valid
+        if (System.IO.File.Exists(cacheFilePath))
+        {
+            var cacheInfo = new FileInfo(cacheFilePath);
+            if (now - cacheInfo.LastWriteTimeUtc < cacheDuration)
+            {
+                var cacheContent = await System.IO.File.ReadAllTextAsync(cacheFilePath);
+                var cachedData = JsonSerializer.Deserialize<CachedLanguageStats>(cacheContent);
+                
+                if (cachedData?.Stats != null && cachedData.RateLimitInfo != null)
+                {
+                    Console.WriteLine("Returning cached data...");
+                    return (cachedData.Stats, GitHubApiErrorCodes.NoError, cachedData.RateLimitInfo);
+                }
+            }
+        }
+
+        // Fetch and cache fresh data
+        var (stats, errorCode, rateLimitInfo) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+        if (errorCode == GitHubApiErrorCodes.NoError)
+        {
+            var cacheContent = JsonSerializer.Serialize(new CachedLanguageStats
+            {
+                Stats = stats,
+                RateLimitInfo = rateLimitInfo
+            });
+            await System.IO.File.WriteAllTextAsync(cacheFilePath, cacheContent);
+        }
+
+        // Return empty stats and rate limit info if cache or API call fails
+        return (stats ?? new Dictionary<string, long>(), errorCode, rateLimitInfo ?? new Dictionary<string, string>());
+    }
+
     // Helper method to generate an SVG for error messages
     private string GenerateErrorSvg(string message, int width, int barHeight)
     {
@@ -105,4 +156,10 @@ public class GitHubStatsController : ControllerBase
                 </text>
             </svg>";
     }
+}
+
+public class CachedLanguageStats
+{
+    public Dictionary<string, long>? Stats { get; set; }
+    public Dictionary<string, string>? RateLimitInfo { get; set; }
 }
