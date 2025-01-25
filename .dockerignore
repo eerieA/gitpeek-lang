@@ -2,6 +2,7 @@ bin/
 obj/
 .vs/
 .vscode/
+.azure/
 *.user
 *.suo
 *.userosscache
