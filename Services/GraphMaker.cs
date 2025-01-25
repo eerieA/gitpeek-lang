@@ -10,7 +10,7 @@ public class GraphMaker
     private const int LegendItemHeight = 25;
     private const int LegendPadding = 10;
 
-    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth)
+    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth, int lgItemMaxCnt)
     {
         if (languageStats == null || languageStats.Count == 0)
             return string.Empty;
@@ -44,9 +44,12 @@ public class GraphMaker
         // Draw the legend
         int currentRow = 0;
         int currentCol = 0;
+        int idx = 0;
         
         foreach (var (language, lines) in languageStats)
         {
+            if (idx >= lgItemMaxCnt) break;    // Stop generating once reached the max count
+
             double percentage = (double)lines / totalLines;
             string color = GetColorForLanguage(language);
             
@@ -70,6 +73,8 @@ public class GraphMaker
                 currentCol = 0;
                 currentRow++;
             }
+
+            idx ++;     // Inc counter in languageStats
         }
         
         svgBuilder.AppendLine("</svg>");
@@ -99,10 +104,12 @@ public class GraphMaker
             "ATS" => "#1ac620", 
             "AutoHotkey" => "#6594b9", 
             "AutoIt" => "#1C3552", 
+            "Batchfile" => "#c1f12e",
             "BlitzMax" => "#cd6400", 
             "Boo" => "#d4bec1", 
             "Brainfuck" => "#2F2530", 
-            "C Sharp" => "#178600", 
+            "C++" => "#f34b7d",
+            "C#" => "#178600", 
             "C" => "#555555", 
             "Chapel" => "#8dc63f", 
             "Cirru" => "#ccccff", 
@@ -110,6 +117,7 @@ public class GraphMaker
             "Clean" => "#3F85AF", 
             "Click" => "#E4E6F3", 
             "Clojure" => "#db5855", 
+            "CMake" => "#ed5683",
             "CoffeeScript" => "#244776", 
             "ColdFusion CFC" => "#ed2cd6", 
             "ColdFusion" => "#ed2cd6", 
@@ -122,6 +130,7 @@ public class GraphMaker
             "Dart" => "#00B4AB", 
             "Diff" => "#88dddd", 
             "DM" => "#447265", 
+            "Dockerfile" => "#384d54", 
             "Dogescript" => "#cca760", 
             "Dylan" => "#6c616e", 
             "E" => "#ccce35", 
@@ -145,6 +154,7 @@ public class GraphMaker
             "FreeMarker" => "#0050b2", 
             "Frege" => "#00cafe", 
             "Game Maker Language" => "#8fb200", 
+            "GLSL" => "#5686A5",
             "Glyph" => "#e4cc98", 
             "Gnuplot" => "#f0a9f0", 
             "Go" => "#375eab", 
