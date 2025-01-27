@@ -63,6 +63,9 @@ public class GitHubStatsController : ControllerBase
 
         // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
         // Dictionary<string, long> stats = [];  //DEBUG
+        // var rateLimitInfo = new Dictionary<string, string> {
+        //     {"X-RateLimit-Remaining", "0"}, {"X-RateLimit-Reset", "12345678"}
+        // };  //DEBUG
 
         // Handle rate limit error
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)

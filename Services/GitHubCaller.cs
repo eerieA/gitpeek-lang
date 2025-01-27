@@ -21,20 +21,18 @@ public enum GitHubApiErrorCodes
 
 public class GitHubApiHelper
 {
-    public static async Task<(TResult?, GitHubApiErrorCodes, HttpResponseHeaders?)> CallApiSimple<TResult>(
+    public static async Task<(TResult?, GitHubApiErrorCodes, HttpResponseHeaders?, string)> CallApiSimple<TResult>(
         Func<Task<HttpResponseMessage>> apiCall,
         Func<Task<TResult>> onSuccess,
         TResult defaultOnError)
     {
+        string content = "";
         try
         {
             // Execute the API call
             var response = await apiCall();
-
-            // Capture headers from the response
             var headers = response.Headers;
 
-            // Inspect the response for errors
             if (!response.IsSuccessStatusCode)
             {
                 // Check for rate limit exceeded
@@ -45,35 +43,28 @@ public class GitHubApiHelper
                         ? headers.GetValues("X-RateLimit-Remaining").FirstOrDefault()
                         : null;
 
-                    if (rateLimitRemaining == "0")
+                    if (rateLimitRemaining == "0" || content.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
                     {
-                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers);
+                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers, content ?? string.Empty);
                     }
 
-                    // Check the response body for rate limit message
-                    var content = await response.Content.ReadAsStringAsync();
-                    if (content.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers);
-                    }
-
-                    Console.WriteLine("Forbidden: Access denied or another issue.");
-                    return (defaultOnError, GitHubApiErrorCodes.OtherError, headers);
+                    Console.WriteLine($"Forbidden: {content}");
+                    return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content ?? string.Empty);
                 }
 
-                // Handle other HTTP errors
-                Console.WriteLine($"API call failed with status code {response.StatusCode}.");
-                return (defaultOnError, GitHubApiErrorCodes.OtherError, headers);
+                Console.WriteLine($"API call failed with status code {response.StatusCode}. Message: {content}");
+                return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content ?? string.Empty);
             }
 
             // If successful, process the response
             var result = await onSuccess();
-            return (result, GitHubApiErrorCodes.NoError, headers); // Success
+            return (result, GitHubApiErrorCodes.NoError, headers, string.Empty);
         }
         catch (Exception ex)
         {
             Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
-            return (defaultOnError, GitHubApiErrorCodes.OtherError, null);
+            Console.WriteLine($"[DEBUG] Also the previous HTTP error message if any: {content}");
+            return (defaultOnError, GitHubApiErrorCodes.OtherError, null, content ?? string.Empty);
         }
     }
 }
@@ -118,7 +109,7 @@ public class GitHubCaller
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
         // Use CallApiSimple with SendRequestWithOptionalAuth
-        var (repos, errorCode, rateLimitInfo) = await GitHubApiHelper.CallApiSimple(
+        var (repos, errorCode, rateLimitInfo, errorContent) = await GitHubApiHelper.CallApiSimple(
             () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
             async () => 
             {
@@ -165,9 +156,9 @@ public class GitHubCaller
         var rateLimitInfo = new Dictionary<string, string>();
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
-        var (repos, errorCode, headers) = await GitHubApiHelper.CallApiSimple(
+        var (repos, errorCode, headers, errorContent) = await GitHubApiHelper.CallApiSimple(
             () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
-            async () => 
+            async () =>
             {
                 var response = await SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl);
                 return await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
@@ -184,6 +175,10 @@ public class GitHubCaller
             Console.WriteLine("Rate limit exceeded while fetching repositories. Aborting operation.");
             Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
             return (new Dictionary<string, long>(), GitHubApiErrorCodes.RateLimitExceeded, rateLimitInfo);
+        }
+
+        if (errorContent.Length > 0) {
+            Console.WriteLine($"GitHub responded with error content: {errorContent}.");
         }
 
         if (repos == null || repos.Count == 0)
@@ -211,7 +206,7 @@ public class GitHubCaller
 
             Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
 
-            var (repoLanguages, repoError, repoHeaders) = await GitHubApiHelper.CallApiSimple(
+            var (repoLanguages, repoError, repoHeaders, repoErrorContent) = await GitHubApiHelper.CallApiSimple(
                 () => SendRequestWithOptionalAuth(HttpMethod.Get, repoLanguagesUrl),
                 async () => 
                 {
@@ -229,6 +224,10 @@ public class GitHubCaller
                 Console.WriteLine("Rate limit exceeded while fetching repo languages. Stopping further API calls.");
                 Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
                 return (languageStats, GitHubApiErrorCodes.RateLimitExceeded, rateLimitInfo);
+            }
+
+            if (repoErrorContent.Length > 0) {
+                Console.WriteLine($"GitHub responded with error content: {repoErrorContent}.");
             }
 
             if (repoLanguages != null)
