@@ -19,7 +19,7 @@ public class GraphMaker
         
         // Calculate how many legend items can fit per row
         int itemsPerRow = Math.Max(1, (width - LegendPadding * 2) / lgItemWidth);
-        int legendRows = (int)Math.Ceiling(languageStats.Count / (double)itemsPerRow);
+        int legendRows = (int)Math.Ceiling(Math.Min(languageStats.Count, lgItemMaxCnt) / (double)itemsPerRow);
         int legendHeight = legendRows * LegendItemHeight + LegendPadding * 2;
         
         // Create SVG builder
@@ -59,13 +59,13 @@ public class GraphMaker
             
             // Color box
             svgBuilder.AppendFormat(
-                "<rect x='{0}' y='{1}' width='15' height='15' fill='{2}' />",
-                itemX, itemY + 2, color);
+                "<circle cx='{0}' cy='{1}' r='7' fill='{2}' />",
+                itemX+7 + 2, itemY+7 + 2, color);
             
             // Language name and percentage
             svgBuilder.AppendFormat(
                 "<text x='{0}' y='{1}' font-family='Arial, sans-serif' font-size='14'>{2} ({3:P1})</text>",
-                itemX + 25, itemY + 14, language, percentage);
+                itemX + 20, itemY + 14, language, percentage);
             
             currentCol++;
             if (currentCol >= itemsPerRow)
