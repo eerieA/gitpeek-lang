@@ -32,28 +32,28 @@ public class GitHubApiHelper
             // Execute the API call
             var response = await apiCall();
             var headers = response.Headers;
+            
+            // Read content immediately after getting response
+            content = await response.Content.ReadAsStringAsync();
 
             if (!response.IsSuccessStatusCode)
             {
                 // Check for rate limit exceeded
                 if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
                 {
-                    // Check the header value for rate limit message
                     var rateLimitRemaining = headers.Contains("X-RateLimit-Remaining")
                         ? headers.GetValues("X-RateLimit-Remaining").FirstOrDefault()
                         : null;
 
                     if (rateLimitRemaining == "0" || content.Contains("rate limit", StringComparison.OrdinalIgnoreCase))
                     {
-                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers, content ?? string.Empty);
+                        return (defaultOnError, GitHubApiErrorCodes.RateLimitExceeded, headers, content);
                     }
-
-                    Console.WriteLine($"Forbidden: {content}");
-                    return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content ?? string.Empty);
+                    
+                    return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
                 }
 
-                Console.WriteLine($"API call failed with status code {response.StatusCode}. Message: {content}");
-                return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content ?? string.Empty);
+                return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
             }
 
             // If successful, process the response
@@ -62,9 +62,8 @@ public class GitHubApiHelper
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[DEBUG] An unexpected error occurred: {ex.Message}");
-            Console.WriteLine($"[DEBUG] Also the previous HTTP error message if any: {content}");
-            return (defaultOnError, GitHubApiErrorCodes.OtherError, null, content ?? string.Empty);
+            Console.WriteLine($"[DEBUG] Error: {ex.Message}. Response content: {content}");
+            return (defaultOnError, GitHubApiErrorCodes.OtherError, null, content);
         }
     }
 }
@@ -75,6 +74,9 @@ public class GitHubCaller
     private readonly string _AccessToken;
     private readonly string _UserReposUrlTemplate;
     private readonly string _RepoLanguagesUrlTemplate;
+    private readonly string _UserAgentProduct = "GitPeek";
+    private readonly string _UserAgentVersion = "1.0";
+    private readonly string _UserAgentContactInfo = "(+https://github.com/eerieA)"; 
 
     public GitHubCaller(HttpClient httpClient, IConfiguration configuration)
     {
@@ -273,10 +275,17 @@ public class GitHubCaller
     {
         var request = new HttpRequestMessage(method, url);
 
-        // Add Authorization header only if AccessToken is not empty and not equal to placeholder string
+        // Add required User-Agent header (GitHub requirement)
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue(
+            productName: _UserAgentProduct,
+            productVersion: _UserAgentVersion));
+        request.Headers.UserAgent.Add(new ProductInfoHeaderValue(
+            _UserAgentContactInfo));
+
+        // Add Authorization header
         if (!string.IsNullOrWhiteSpace(_AccessToken) && !string.Equals(_AccessToken, "your_personal_access_token_here"))
         {
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", _AccessToken);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _AccessToken);
         }
 
         // Debugging: Log request details
