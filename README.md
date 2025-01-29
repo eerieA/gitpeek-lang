@@ -1,28 +1,80 @@
 # Endpoints
 
-{depl_svr}/api/GitHubStats/{username}
+#### {depl_svr}/api/GitHubStats/{username}
+<table style="max-width: 70%; width: auto; border-collapse: collapse;">
+  <tbody>
+    <tr>
+      <td>Query Param</td>
+      <td>Type</td>
+      <td>Required</td>
+      <td>Description</td>
+    </tr>
+    <tr>
+      <td><code>username</code></td>
+      <td><code>string</code></td>
+      <td>✅</td>
+      <td>The GitHub username for which the data is retrieved.</td>
+    </tr>
+  </tbody>
+</table>
 
-{depl_svr}/api/GitHubStats/{username}/graph
+#### {depl_svr}/api/GitHubStats/{username}/graph
+<table style="max-width: 70%; width: auto; border-collapse: collapse;">
+  <tbody>
+    <tr>
+      <td>Query Param</td>
+      <td>Type</td>
+      <td>Required</td>
+      <td>Description</td>
+    </tr>
+    <tr>
+      <td><code>username</code></td>
+      <td><code>string</code></td>
+      <td>✅</td>
+      <td>The GitHub username for which the graph is generated.</td>
+    </tr>
+    <tr>
+      <td><code>width</code></td>
+      <td><code>int</code></td>
+      <td>No</td>
+      <td>The width of the graph in pixels.</td>
+    </tr>
+    <tr>
+      <td><code>barHeight</code></td>
+      <td><code>int</code></td>
+      <td>No</td>
+      <td>The height of the bar in the graph.</td>
+    </tr>
+    <tr>
+      <td><code>lgItemWidth</code></td>
+      <td><code>int</code></td>
+      <td>No</td>
+      <td>The max width of individual legend items in the graph.</td>
+    </tr>
+    <tr>
+      <td><code>lgItemMaxCnt</code></td>
+      <td><code>int</code></td>
+      <td>No</td>
+      <td>The max number of legend items to display.</td>
+    </tr>
+  </tbody>
+</table>
 
-# Building
+Note: Any optional query parameter uses a default value if unspecified.
+
+# Deploying
+
+Currently tested to be deployable on render.com. Set env var GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
+
+# Building & running
 
 Local without docker: `dotnet run`
+- If want to input GitHub token (you probably want to), set env var GH_AC_TOKEN. For example on Windows command line, that could be done by:
+
+    set GH_AC_TOKEN=<your_github_token> && dotnet run
 
 Local with docker: `docker-compose up --build`
-
-## Pfx cert for HTTPS
-
-Only if needed for developer testing.
-
-1. Run `setup-cert.bat`, provide a password such as "pwd123456" for the SSL cert, and a `aspnetapp.pfx` will be generated in the app root.
-
-2. Create a `.env` file in the app root if not exist, and define the password env variable like this in it:
-
-    CERT_PASSWORD=pwd123456
-
-3. Locally run `docker-compose up` and then visit `https://localhost:{port}/` to test if the cert works.
-
-Note: Currently only have setup-cert.bat (for Win), but more will be added for other systems.
+- --build is only necessary if there are source code changes.
 
 ## Dev log
 <details>
