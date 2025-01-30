@@ -53,13 +53,14 @@ public class GitHubStatsController : ControllerBase
         [FromQuery] int? barHeight = null,
         [FromQuery] int? lgItemWidth = null,
         [FromQuery] int? lgItemMaxCnt = null,
-        [FromQuery] int? fontSize = null)
+        [FromQuery] int? fontSize = null,
+        [FromQuery] bool? noCache = false)
     {
         var parameters = new Dictionary<string, string> {
             {"username", username}
         };
-
-        var (stats, errorCode, rateLimitInfo) = await CacheAndRetrieveLangStats(parameters);
+        var forceRefresh = noCache ?? false;
+        var (stats, errorCode, rateLimitInfo) = await CacheAndRetrieveLangStats(parameters, forceRefresh);
         // Console.WriteLine($"GH_AC_TOKEN: {configuration["GH_AC_TOKEN"]}");  //DEBUG
 
         // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
@@ -98,13 +99,15 @@ public class GitHubStatsController : ControllerBase
             barHeight ?? 50,        // Default bar height if not specified
             lgItemWidth ?? 120,     // Default legend item width if not specified
             lgItemMaxCnt ?? 8,      // Default legend item max number if not specified
-            fontSize ?? 14          // Default legend item max number if not specified
+            fontSize ?? 14          // Default legend font size if not specified
         );
 
         return Content(svg, "image/svg+xml");
     }
 
-    public async Task<(Dictionary<string, long>, GitHubApiErrorCodes, Dictionary<string, string>)> CacheAndRetrieveLangStats(Dictionary<string, string> parameters)
+    public async Task<(Dictionary<string, long>, GitHubApiErrorCodes, Dictionary<string, string>)> CacheAndRetrieveLangStats(
+        Dictionary<string, string> parameters,
+        bool forceRefresh)
     {
         var cacheDirectory = "Cache";
         var cacheFilePath = Path.Combine(cacheDirectory, $"{parameters["username"]}_language_stats.json");
@@ -119,7 +122,7 @@ public class GitHubStatsController : ControllerBase
         }
 
         // Check if cache exists and is valid
-        if (System.IO.File.Exists(cacheFilePath))
+        if (System.IO.File.Exists(cacheFilePath) && !forceRefresh)
         {
             var cacheInfo = new FileInfo(cacheFilePath);
             if (now - cacheInfo.LastWriteTimeUtc < cacheDuration)

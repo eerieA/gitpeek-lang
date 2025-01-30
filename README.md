@@ -66,10 +66,53 @@ Note: Any optional query parameter uses a default value if unspecified.
 
 Currently tested to be deployable on render.com. Set env var GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
 
+After deployments goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
+  
+  ```
+  ![GitHub Language Statistics](https://<your-service>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15)
+  ```
+
+However, since GitHub uses Camo cache for external assets, and this app does not have cache busting, you would need to manually edit the Markdown to update this generated image. Therefore I would suggest using an automation tool like GitHub Action to periodically re-fetch, and put relative path in the Markdown instead. Below is a sample GitHub Action yml template.
+
+<details>
+<summary>Expand to see sample GitHub Action <span style="font-weight: bold">update-stats.yml</span></summary>
+
+    name: Update GitHub Language Stats
+
+    on:
+      schedule:
+        - cron: '0 */24 * * *' # Run every 24 hours
+      workflow_dispatch:       # Allow manual trigger
+
+    permissions:
+      contents: write
+
+    jobs:
+      update-stats:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v4
+
+          - name: Fetch stats from gitpeek-lang
+            run: |
+              mkdir -p assets
+              curl "https://<your-service>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15" > assets/github-language-stats.svg
+
+          - name: Commit and push if changed
+            run: |
+              git config user.name github-actions
+              git config user.email github-actions@github.com
+              git add assets/github-language-stats.svg
+              git diff --quiet && git diff --staged --quiet || git commit -m "Update GitHub language stats"
+              git push
+</details>
+
+<br>
+
 # Building & running
 
 Local without docker: `dotnet run`
-- If want to input GitHub token (you probably want to), set env var GH_AC_TOKEN. For example on Windows command line, that could be done by:
+- If want to input GitHub token (you probably want to), set environment variable GH_AC_TOKEN. For example on Windows command line, that could be done by:
 
     set GH_AC_TOKEN=<your_github_token> && dotnet run
 
