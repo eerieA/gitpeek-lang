@@ -10,7 +10,7 @@ public class GraphMaker
     private const int LegendItemHeight = 25;
     private const int LegendPadding = 10;
 
-    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth, int lgItemMaxCnt)
+    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth, int lgItemMaxCnt, int fontSize)
     {
         if (languageStats == null || languageStats.Count == 0)
             return string.Empty;
@@ -57,15 +57,15 @@ public class GraphMaker
             int itemX = LegendPadding + (currentCol * lgItemWidth);
             int itemY = barHeight + LegendPadding + (currentRow * LegendItemHeight);
             
-            // Color box
+            // Color circle
             svgBuilder.AppendFormat(
-                "<circle cx='{0}' cy='{1}' r='7' fill='{2}' />",
-                itemX+7 + 2, itemY+7 + 2, color);
+                "<circle cx='{0}' cy='{1}' r='{2}' fill='{3}' />",
+                itemX+(fontSize/2), itemY+(fontSize/2), fontSize/2, color);
             
             // Language name and percentage
             svgBuilder.AppendFormat(
-                "<text x='{0}' y='{1}' font-family='Arial, sans-serif' font-size='14'>{2} ({3:P1})</text>",
-                itemX + 20, itemY + 14, language, percentage);
+                "<text x='{0}' y='{1}' font-family='Arial, sans-serif' font-size='{4}'>{2} ({3:P1})</text>",
+                itemX + fontSize * 1.2, itemY + fontSize - fontSize*0.15, language, percentage, fontSize);
             
             currentCol++;
             if (currentCol >= itemsPerRow)

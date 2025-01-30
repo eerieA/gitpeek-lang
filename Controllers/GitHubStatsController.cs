@@ -52,7 +52,8 @@ public class GitHubStatsController : ControllerBase
         [FromQuery] int? width = null,
         [FromQuery] int? barHeight = null,
         [FromQuery] int? lgItemWidth = null,
-        [FromQuery] int? lgItemMaxCnt = null)
+        [FromQuery] int? lgItemMaxCnt = null,
+        [FromQuery] int? fontSize = null)
     {
         var parameters = new Dictionary<string, string> {
             {"username", username}
@@ -96,7 +97,8 @@ public class GitHubStatsController : ControllerBase
             width ?? 600,           // Default width if not specified
             barHeight ?? 50,        // Default bar height if not specified
             lgItemWidth ?? 120,     // Default legend item width if not specified
-            lgItemMaxCnt ?? 8       // Default legend item max number if not specified
+            lgItemMaxCnt ?? 8,      // Default legend item max number if not specified
+            fontSize ?? 14          // Default legend item max number if not specified
         );
 
         return Content(svg, "image/svg+xml");
