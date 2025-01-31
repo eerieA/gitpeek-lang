@@ -52,6 +52,13 @@ public class GitHubApiHelper
                     
                     return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
                 }
+                
+                // If not rate limit, check if the response contains an error message
+                if (content.Contains("\"message\""))
+                {
+                    Console.WriteLine($"[DEBUG] API Error Response: {content}");
+                    return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
+                }
 
                 return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
             }
@@ -213,6 +220,15 @@ public class GitHubCaller
                 async () => 
                 {
                     var response = await _httpClient.GetAsync(repoLanguagesUrl);
+                    
+                    string jsonContent = await response.Content.ReadAsStringAsync();
+
+                    if (jsonContent.Contains("\"message\""))  // Handle API error responses
+                    {
+                        Console.WriteLine($"[DEBUG] GitHub API Error: {jsonContent}");
+                        return null;
+                    }
+
                     return await response.Content.ReadFromJsonAsync<Dictionary<string, long>>();
                 },
                 null
