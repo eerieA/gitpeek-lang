@@ -58,6 +58,12 @@
       <td>The max number of legend items to display.</td>
     </tr>
     <tr>
+      <td><code>fontSize</code></td>
+      <td><code>int</code></td>
+      <td>No</td>
+      <td>Font size for legend items. Default is 14.</td>
+    </tr>
+    <tr>
       <td><code>noCache</code></td>
       <td><code>bool</code></td>
       <td>No</td>
@@ -70,7 +76,7 @@ Note: Any optional query parameter uses a default value if unspecified.
 
 # Deploying
 
-Currently tested to be deployable on [Render](https://render.com/). Set env var GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
+Currently tested to be deployable on [Render](https://render.com/). Set environment variable GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
 
 After deployment goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
   
@@ -81,7 +87,7 @@ After deployment goes live, the endpoint can be called. A typical use case is to
 Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache for external assets, and this app does not intend to implement cache busting, you would need to manually edit the Markdown to update the generated image each time. Therefore we recommend using an automation tool like GitHub Action to periodically re-fetch, and put the fetched image's relative path in the Markdown instead. Below is a sample GitHub Action yml template.
 
 <details>
-<summary>Expand to see sample GitHub Action <span style="font-weight: bold">update-stats.yml</span></summary>
+<summary>Sample GitHub Action file: 🗒️update-stats.yml.</summary>
 
     name: Update GitHub Language Stats
 
@@ -102,7 +108,7 @@ Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache fo
           - name: Fetch stats from gitpeek-lang
             run: |
               mkdir -p assets
-              curl "https://<your-service>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15" > assets/github-language-stats.svg
+              curl "https://<your-depl>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15" > assets/github-language-stats.svg
 
           - name: Commit and push if changed
             run: |
