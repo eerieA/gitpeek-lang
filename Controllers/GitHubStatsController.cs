@@ -22,17 +22,34 @@ public class GitHubStatsController : ControllerBase
 
     // Endpoint to get language stats as JSON
     [HttpGet("{username}")]
-    public async Task<IActionResult> GetLanguageStats(string username)
+    public async Task<IActionResult> GetLanguageStats(
+        string username,
+        [FromQuery] bool? noCache = false)
     {
         var parameters = new Dictionary<string, string> {
             {"username", username}
         };
+        var forceRefresh = noCache ?? false;
 
-        var (stats, errorCode, rateLimitInfo) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
+        var (stats, errorCode, rateLimitInfo) = await CacheAndRetrieveLangStats(parameters, forceRefresh);
+
+        // GitHubApiErrorCodes errorCode = GitHubApiErrorCodes.RateLimitExceeded;  //DEBUG
+        // Dictionary<string, long> stats = [];  //DEBUG
+        // var rateLimitInfo = new Dictionary<string, string> {
+        //     {"X-RateLimit-Remaining", "0"}, {"X-RateLimit-Reset", "12345678"}
+        // };  //DEBUG
 
         if (errorCode == GitHubApiErrorCodes.RateLimitExceeded)
         {
-            return StatusCode(429, new { message = "Rate limit exceeded. If you are not using your GitHub access token then that may be the cause.", errorCode = errorCode });
+            var errorMessage = $"Rate limit exceeded. Reset time: {rateLimitInfo["X-RateLimit-Reset"]}.";
+            return StatusCode(429, new { message = errorMessage, errorCode = errorCode });
+        }
+
+        // Log the rate limit info too on success
+        if (rateLimitInfo != null)
+        {
+            Console.WriteLine($"Rate Limit Remaining: {rateLimitInfo["X-RateLimit-Remaining"]}");
+            Console.WriteLine($"Rate Limit Reset: {rateLimitInfo["X-RateLimit-Reset"]}");
         }
 
         if (stats.Count == 0)
