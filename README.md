@@ -57,6 +57,12 @@
       <td>No</td>
       <td>The max number of legend items to display.</td>
     </tr>
+    <tr>
+      <td><code>noCache</code></td>
+      <td><code>bool</code></td>
+      <td>No</td>
+      <td>Whether to use the internal JSON Cache. Default is false.</td>
+    </tr>
   </tbody>
 </table>
 
@@ -64,15 +70,15 @@ Note: Any optional query parameter uses a default value if unspecified.
 
 # Deploying
 
-Currently tested to be deployable on render.com. Set env var GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
+Currently tested to be deployable on [Render](https://render.com/). Set env var GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
 
-After deployments goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
+After deployment goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
   
   ```
   ![GitHub Language Statistics](https://<your-service>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15)
   ```
 
-However, since GitHub uses Camo cache for external assets, and this app does not have cache busting, you would need to manually edit the Markdown to update this generated image. Therefore I would suggest using an automation tool like GitHub Action to periodically re-fetch, and put relative path in the Markdown instead. Below is a sample GitHub Action yml template.
+Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache for external assets, and this app does not intend to implement cache busting, you would need to manually edit the Markdown to update the generated image each time. Therefore we recommend using an automation tool like GitHub Action to periodically re-fetch, and put the fetched image's relative path in the Markdown instead. Below is a sample GitHub Action yml template.
 
 <details>
 <summary>Expand to see sample GitHub Action <span style="font-weight: bold">update-stats.yml</span></summary>
@@ -111,15 +117,24 @@ However, since GitHub uses Camo cache for external assets, and this app does not
 
 # Building & running
 
-Local without docker: `dotnet run`
-- If want to input GitHub token (you probably want to), set environment variable GH_AC_TOKEN. For example on Windows command line, that could be done by:
+## Local without docker
+
+`dotnet run`
+
+- If you want to use a GitHub token (recommended), set environment variable GH_AC_TOKEN. For example on Windows command line, that could be done by:
 
     set GH_AC_TOKEN=<your_github_token> && dotnet run
 
-Local with docker: `docker-compose up --build`
-- --build is only necessary if there are source code changes.
+## Local with docker:
 
-## Dev log
+`docker-compose up --build`
+
+- `--build` is only necessary if there are source code changes.
+
+
+<br>
+
+## Appendix: Dev log
 <details>
 <summary>Jan 22, 2025: Deployment css and js files</summary>
 It seems we need to use smth like Libman to restore dependencies such as bootstrap.bundle.min.js before deploying through a provide like render.com. Also need to correct paths in `_Layout.cshtml`. Otherwise there will be 404s when retrieving them.
