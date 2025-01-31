@@ -82,7 +82,9 @@ Note: Any optional query parameter uses a default value if unspecified.
 
 # Deploying
 
-Currently tested to be deployable on [Render](https://render.com/). Set environment variable GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
+## On [Render](https://render.com/)
+
+Choose Docker as type of deployment. Set environment variable GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
 
 After deployment goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
   
@@ -129,6 +131,21 @@ Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache fo
               git push
 </details>
 
+## On Azure
+
+Can be deployed without Docker containerization. Rough steps:
+  1. Choose an Azure subscription.
+  2. Create a Resource Group, an App Service plan and an App Service associated with it.
+  3. Set environment variable GH_AC_TOKEN with a valid GitHub access token for the App Service.
+  4. Locally publish using commands like    
+      ```
+      dotnet publish ./gitpeek-lang.csproj -c Release --no-restore --output ./publish
+      ```
+Azure CLI deployment command then can be:
+  ```
+  az webapp up --name <your-app-service> --runtime "dotnet:8" --resource-group <your-resource-group> --plan <your-plan>
+  ```
+.
 
 # Building & running
 
