@@ -4,7 +4,7 @@
 <table style="max-width: 70%; width: auto; border-collapse: collapse;">
   <tbody>
     <tr>
-      <td>Query Param</td>
+      <td>Param</td>
       <td>Type</td>
       <td>Required</td>
       <td>Description</td>
@@ -15,6 +15,12 @@
       <td>✅</td>
       <td>The GitHub username for which the data is retrieved.</td>
     </tr>
+    <tr>
+      <td><code>noCache</code></td>
+      <td><code>bool</code></td>
+      <td>No</td>
+      <td>Whether to use the internal JSON Cache. Default is false.</td>
+    </tr>
   </tbody>
 </table>
 
@@ -22,7 +28,7 @@
 <table style="max-width: 70%; width: auto; border-collapse: collapse;">
   <tbody>
     <tr>
-      <td>Query Param</td>
+      <td>Param</td>
       <td>Type</td>
       <td>Required</td>
       <td>Description</td>
@@ -55,7 +61,7 @@
       <td><code>lgItemMaxCnt</code></td>
       <td><code>int</code></td>
       <td>No</td>
-      <td>The max number of legend items to display.</td>
+      <td>The cut-off number of legend items to display. E.g. 8 means top 8 most used languages.</td>
     </tr>
     <tr>
       <td><code>fontSize</code></td>
@@ -81,10 +87,14 @@ Currently tested to be deployable on [Render](https://render.com/). Set environm
 After deployment goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
   
   ```
-  ![GitHub Language Statistics](https://<your-service>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15)
+  ![GitHub Language Statistics](https://<your-depl>.onrender.com/api/GitHubStats/<username>/graph?barHeight=15)
   ```
 
-Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache for external assets, and this app does not intend to implement cache busting, you would need to manually edit the Markdown to update the generated image each time. Therefore we recommend using an automation tool like GitHub Action to periodically re-fetch, and put the fetched image's relative path in the Markdown instead. Below is a sample GitHub Action yml template.
+Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache for external assets, and this app does not intend to implement cache busting, you would need to manually edit the Markdown to update the generated image each time. Therefore we recommend using an automation tool like GitHub Action to periodically re-fetch, and put the fetched image's relative path in the Markdown instead like so:
+  ```
+  ![GitHub Language Statistics](./assets/github-language-stats.svg)
+  ```
+. Below is a sample GitHub Action yml template.
 
 <details>
 <summary>Sample GitHub Action file: 🗒️update-stats.yml.</summary>
@@ -119,7 +129,6 @@ Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache fo
               git push
 </details>
 
-<br>
 
 # Building & running
 
