@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 using gitpeek_lang.Services;
+using gitpeek_lang.Models;
 
 namespace gitpeek_lang.Controllers;
 
@@ -145,7 +146,7 @@ public class GitHubStatsController : ControllerBase
             if (now - cacheInfo.LastWriteTimeUtc < cacheDuration)
             {
                 var cacheContent = await System.IO.File.ReadAllTextAsync(cacheFilePath);
-                var cachedData = JsonSerializer.Deserialize<CachedLanguageStats>(cacheContent);
+                var cachedData = JsonSerializer.Deserialize<CachedLangStats>(cacheContent);
                 
                 if (cachedData?.Stats != null && cachedData.RateLimitInfo != null)
                 {
@@ -159,7 +160,7 @@ public class GitHubStatsController : ControllerBase
         var (stats, errorCode, rateLimitInfo) = await _gitHubCaller.GetDetailedLanguageStatistics(parameters);
         if (errorCode == GitHubApiErrorCodes.NoError)
         {
-            var cacheContent = JsonSerializer.Serialize(new CachedLanguageStats
+            var cacheContent = JsonSerializer.Serialize(new CachedLangStats
             {
                 Stats = stats,
                 RateLimitInfo = rateLimitInfo
@@ -183,10 +184,4 @@ public class GitHubStatsController : ControllerBase
                 </text>
             </svg>";
     }
-}
-
-public class CachedLanguageStats
-{
-    public Dictionary<string, long>? Stats { get; set; }
-    public Dictionary<string, string>? RateLimitInfo { get; set; }
 }

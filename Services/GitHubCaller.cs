@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using gitpeek_lang.Models;
 
 namespace gitpeek_lang.Services;
 
@@ -328,10 +329,4 @@ public class GitHubCaller
             throw new InvalidOperationException($"Missing value for placeholder '{key}' in the template.");
         });
     }
-}
-
-public class GitHubRepo
-{
-    public required string Name { get; set; }
-    public string? Language { get; set; } // Language is nullable
 }
