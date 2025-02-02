@@ -23,8 +23,8 @@ public enum GitHubApiErrorCodes
 public class GitHubApiHelper
 {
     public static async Task<(TResult?, GitHubApiErrorCodes, HttpResponseHeaders?, string)> CallApiSimple<TResult>(
-        Func<Task<HttpResponseMessage>> apiCall,
-        Func<Task<TResult>> onSuccess,
+        Func<Task<HttpResponseMessage>> apiCall,             // First delegate
+        Func<HttpResponseMessage, Task<TResult>> onSuccess,  // Second delegate taking HttpResponseMessage as input
         TResult defaultOnError)
     {
         string content = "";
@@ -33,9 +33,18 @@ public class GitHubApiHelper
             // Execute the API call
             var response = await apiCall();
             var headers = response.Headers;
-            
-            // Read content immediately after getting response
+            var reqHeaders = response.RequestMessage?.Headers;
+
+            // Read content immediately after getting response to record any errors from GitHub
             content = await response.Content.ReadAsStringAsync();
+
+            // Safely retrieve User-Agent header for logging
+            if (reqHeaders != null && reqHeaders.TryGetValues("User-Agent", out var userAgentValues)) {
+                var userAgent = string.Join(", ", userAgentValues);
+                Console.WriteLine($"[DEBUG] User-Agent in CallApiSimple: {userAgent}");
+            } else {
+                Console.WriteLine("[DEBUG] User-Agent header is missing in CallApiSimple.");
+            }
 
             if (!response.IsSuccessStatusCode)
             {
@@ -57,15 +66,16 @@ public class GitHubApiHelper
                 // If not rate limit, check if the response contains an error message
                 if (content.Contains("\"message\""))
                 {
-                    Console.WriteLine($"[DEBUG] API Error Response: {content}");
+                    Console.WriteLine($"[DEBUG] 403 Forbidden Response: {content}");
+                    Console.WriteLine($"[DEBUG] Headers: {string.Join(", ", headers)}");
                     return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
                 }
 
                 return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
             }
 
-            // If successful, process the response
-            var result = await onSuccess();
+            // If no erroes, pass the response to onSuccess
+            var result = await onSuccess(response);
             return (result, GitHubApiErrorCodes.NoError, headers, string.Empty);
         }
         catch (Exception ex)
@@ -119,11 +129,10 @@ public class GitHubCaller
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
         // Use CallApiSimple with SendRequestWithOptionalAuth
-        var (repos, errorCode, rateLimitInfo, errorContent) = await GitHubApiHelper.CallApiSimple(
+        var (repos, errorCode, headers, errorContent) = await GitHubApiHelper.CallApiSimple(
             () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
-            async () => 
+            async (response) => 
             {
-                var response = await SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl);
                 return await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
             },
             new List<GitHubRepo>()
@@ -167,10 +176,20 @@ public class GitHubCaller
         var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
 
         var (repos, errorCode, headers, errorContent) = await GitHubApiHelper.CallApiSimple(
-            () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),
-            async () =>
+            () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),  // Send request to GitHub
+            async (response) =>  // Process the response from the above request
             {
-                var response = await SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl);
+                string jsonContent = await response.Content.ReadAsStringAsync();
+
+                if (jsonContent.Contains("\"message\""))  // Handle API error responses
+                {
+                    Console.WriteLine($"[DEBUG] GitHub API Error: {jsonContent}");
+                    ExtractRateLimitHeaders(response.Headers, rateLimitInfo);
+                    Console.WriteLine($"X-RateLimit-Remaining: {rateLimitInfo["X-RateLimit-Remaining"]}.");
+                    Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
+                    return null;
+                }
+
                 return await response.Content.ReadFromJsonAsync<List<GitHubRepo>>();
             },
             new List<GitHubRepo>()
@@ -218,15 +237,16 @@ public class GitHubCaller
 
             var (repoLanguages, repoError, repoHeaders, repoErrorContent) = await GitHubApiHelper.CallApiSimple(
                 () => SendRequestWithOptionalAuth(HttpMethod.Get, repoLanguagesUrl),
-                async () => 
+                async (response) => 
                 {
-                    var response = await _httpClient.GetAsync(repoLanguagesUrl);
-                    
                     string jsonContent = await response.Content.ReadAsStringAsync();
 
                     if (jsonContent.Contains("\"message\""))  // Handle API error responses
                     {
                         Console.WriteLine($"[DEBUG] GitHub API Error: {jsonContent}");
+                        ExtractRateLimitHeaders(response.Headers, rateLimitInfo);
+                        Console.WriteLine($"X-RateLimit-Remaining: {rateLimitInfo["X-RateLimit-Remaining"]}.");
+                        Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
                         return null;
                     }
 
