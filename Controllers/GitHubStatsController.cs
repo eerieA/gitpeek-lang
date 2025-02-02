@@ -14,11 +14,15 @@ public class GitHubStatsController : ControllerBase
 {
     private readonly GitHubCaller _gitHubCaller;
     private readonly GraphMaker _graphMaker;
+    private readonly int _cacheTimer;
 
-    public GitHubStatsController(GitHubCaller gitHubCaller, GraphMaker graphMaker)
+    public GitHubStatsController(GitHubCaller gitHubCaller, GraphMaker graphMaker, IConfiguration configuration)
     {
         _gitHubCaller = gitHubCaller;
         _graphMaker = graphMaker;
+        
+        // Try reading cache expiration timer value from env var
+        _cacheTimer = int.TryParse(configuration["CACHE_TIMER"], out int result) ? result : 24;
     }
 
     // Endpoint to get language stats as JSON
@@ -129,7 +133,8 @@ public class GitHubStatsController : ControllerBase
     {
         var cacheDirectory = "Cache";
         var cacheFilePath = Path.Combine(cacheDirectory, $"{parameters["username"]}_language_stats.json");
-        var cacheDuration = TimeSpan.FromHours(24); // Cache expires after 24 hours
+        var cacheDuration = TimeSpan.FromHours(_cacheTimer); // Cache expires after 24 hours
+        Console.WriteLine($"Cache expiration age: {cacheDuration}");
 
         var now = DateTime.UtcNow;
 
