@@ -84,7 +84,9 @@ Note: Any optional query parameter uses a default value if unspecified.
 
 ## On [Render](https://render.com/)
 
-Choose Docker as type of deployment. Set environment variable GH_AC_TOKEN to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
+Choose Docker as deployment language. Set environment variables:
+  - `GH_AC_TOKEN` to get higher rate quota ([GitHub Docs](https://docs.github.com/en/rest/rate-limit/rate-limit?apiVersion=2022-11-28)).
+  - `CACHE_TIMER` to set the JSON cache expiration time. It can only be integer, the unit is hour and default value is 24 (hours).
 
 After deployment goes live, the endpoint can be called. A typical use case is to insert it into a Markdown rendered by GitHub:
   
@@ -136,7 +138,7 @@ Please note that, since GitHub uses Camo *(camo.githubusercontent.com)* cache fo
 Can be deployed without Docker containerization. Rough steps:
   1. Choose an Azure subscription.
   2. Create a Resource Group, an App Service plan and an App Service associated with it.
-  3. Set environment variable GH_AC_TOKEN with a valid GitHub access token for the App Service.
+  3. Set environment variables as in deployment on Render.
   4. Locally publish using commands like    
       ```
       dotnet publish ./gitpeek-lang.csproj -c Release --no-restore --output ./publish
@@ -157,7 +159,7 @@ Azure CLI deployment command then can be:
 
     set GH_AC_TOKEN=<your_github_token> && dotnet run
 
-## Local with docker:
+## Local with docker
 
 `docker-compose up --build`
 
@@ -165,6 +167,8 @@ Azure CLI deployment command then can be:
 
 
 <br>
+
+# Appendices
 
 ## Appendix: Dev log
 <details>
@@ -185,3 +189,5 @@ I only have 1 API Management rule and 1 App Service. Azure's predicted cost is $
 depl: deployment
 
 svr: server
+
+param: parameter
