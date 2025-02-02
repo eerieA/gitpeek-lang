@@ -74,7 +74,7 @@ public class GitHubApiHelper
                 return (defaultOnError, GitHubApiErrorCodes.OtherError, headers, content);
             }
 
-            // If no erroes, pass the response to onSuccess
+            // If no errors, pass the response to the onSuccess delegate
             var result = await onSuccess(response);
             return (result, GitHubApiErrorCodes.NoError, headers, string.Empty);
         }
@@ -258,15 +258,22 @@ public class GitHubCaller
             // Extract rate limit info from repo headers
             ExtractRateLimitHeaders(repoHeaders, rateLimitInfo);
 
-            if (repoError == GitHubApiErrorCodes.RateLimitExceeded)
+            // Check for errors
+            if (repoError != GitHubApiErrorCodes.NoError)
             {
-                Console.WriteLine("Rate limit exceeded while fetching repo languages. Stopping further API calls.");
+                Console.WriteLine($"Error occurred while fetching repo languages for {repo.Name}: {repoErrorContent}");
+                Console.WriteLine($"X-RateLimit-Remaining: {rateLimitInfo["X-RateLimit-Remaining"]}.");
                 Console.WriteLine($"X-RateLimit-Reset: {rateLimitInfo["X-RateLimit-Reset"]}.");
-                return (languageStats, GitHubApiErrorCodes.RateLimitExceeded, rateLimitInfo);
-            }
-
-            if (repoErrorContent.Length > 0) {
-                Console.WriteLine($"GitHub responded with error content: {repoErrorContent}.");
+                if (repoError == GitHubApiErrorCodes.RateLimitExceeded)
+                {
+                    Console.WriteLine("Rate limit exceeded. Stopping further API calls.");
+                    return (languageStats, GitHubApiErrorCodes.RateLimitExceeded, rateLimitInfo);
+                }
+                else
+                {
+                    Console.WriteLine("Stopping further API calls due to this error.");
+                    return (languageStats, repoError, rateLimitInfo);
+                }
             }
 
             if (repoLanguages != null)
