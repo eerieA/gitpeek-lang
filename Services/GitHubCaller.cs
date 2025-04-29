@@ -91,6 +91,7 @@ public class GitHubCaller
     private readonly HttpClient _httpClient;
     private readonly string _AccessToken;
     private readonly string _UserReposUrlTemplate;
+    private readonly string _AuthUserReposUrl;
     private readonly string _RepoLanguagesUrlTemplate;
     private readonly string _UserAgentProduct = "GitPeek";
     private readonly string _UserAgentVersion = "1.0";
@@ -115,6 +116,12 @@ public class GitHubCaller
         if (string.IsNullOrWhiteSpace(_UserReposUrlTemplate))
         {
             throw new InvalidOperationException("The UserReposUrl configuration is missing or empty.");
+        }
+
+        _AuthUserReposUrl = configuration["GitHubApi:AuthUserReposUrl"] ?? "";
+        if (string.IsNullOrWhiteSpace(_AuthUserReposUrl))
+        {
+            throw new InvalidOperationException("The AuthUserReposUrl configuration is missing or empty.");
         }
 
         _RepoLanguagesUrlTemplate = configuration["GitHubApi:RepoLanguagesUrl"] ?? "";
@@ -173,7 +180,15 @@ public class GitHubCaller
     public async Task<(Dictionary<string, long> stats, GitHubApiErrorCodes errorCode, Dictionary<string, string> rateLimitInfo)> GetDetailedLanguageStatistics(Dictionary<string, string> parameters)
     {
         var rateLimitInfo = new Dictionary<string, string>();
-        var reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
+        var reposUrl = "";
+        var username = parameters["username"];
+        if (parameters["username"] == "self") {
+            reposUrl = _AuthUserReposUrl;
+        } else {
+            reposUrl = ReplacePlaceholders(_UserReposUrlTemplate, parameters);
+        }
+        
+        Console.WriteLine($"reposUrl: {reposUrl}");
 
         var (repos, errorCode, headers, errorContent) = await GitHubApiHelper.CallApiSimple(
             () => SendRequestWithOptionalAuth(HttpMethod.Get, reposUrl),  // Send request to GitHub
@@ -216,8 +231,15 @@ public class GitHubCaller
             return (new Dictionary<string, long>(), GitHubApiErrorCodes.OtherError, rateLimitInfo);
         }
 
-        Console.WriteLine($"Got {repos.Count} repos from user {parameters["username"]}.");
+        if (parameters["username"] == "self") {
+            // If url param username indicates self, do extra operation of excluding repos not owned by self
+            // Assume the first one is always a repo owned by self, replace local var username with that owner name
+            username = repos[0].Owner.Login;
+            Console.WriteLine($"Inferred self user name: {username}.");
+            repos.RemoveAll(repo => repo.Owner.Login != username);
+        }
 
+        Console.WriteLine($"Got {repos.Count} repos owned by user {username}.");
         var languageStats = new Dictionary<string, long>();
 
         foreach (var repo in repos)
@@ -229,11 +251,11 @@ public class GitHubCaller
 
             var repoLanguagesUrl = ReplacePlaceholders(_RepoLanguagesUrlTemplate, new Dictionary<string, string>
             {
-                { "username", parameters["username"] },
+                { "username", username },
                 { "reponame", repo.Name }
             });
 
-            Console.WriteLine($"Getting lang stats from user {parameters["username"]}'s repo {repo.Name}...");
+            Console.WriteLine($"Getting lang stats from user {username}'s repo {repo.Name}...");
 
             var (repoLanguages, repoError, repoHeaders, repoErrorContent) = await GitHubApiHelper.CallApiSimple(
                 () => SendRequestWithOptionalAuth(HttpMethod.Get, repoLanguagesUrl),
