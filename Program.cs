@@ -7,6 +7,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddControllers();
 builder.Services.AddHttpClient<GitHubCaller>();
 builder.Services.AddTransient<GraphMaker>();
+builder.Services.AddSingleton<LanguageColorService>();
 
 builder.WebHost.ConfigureKestrel(options => {
     options.ListenAnyIP(80);
@@ -14,6 +15,9 @@ builder.WebHost.ConfigureKestrel(options => {
 );
 
 var app = builder.Build();
+// Load the colors right after app being built
+var colorService = app.Services.GetRequiredService<LanguageColorService>();
+await colorService.InitAsync();
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
