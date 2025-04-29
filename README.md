@@ -13,7 +13,7 @@
       <td><code>username</code></td>
       <td><code>string</code></td>
       <td>✅</td>
-      <td>The GitHub username for which the data is retrieved.</td>
+      <td>The GitHub username for which the data is retrieved. If = `self`, it will return result for all public and private of the user to whom the Github token belongs.</td>
     </tr>
     <tr>
       <td><code>noCache</code></td>
@@ -37,7 +37,7 @@
       <td><code>username</code></td>
       <td><code>string</code></td>
       <td>✅</td>
-      <td>The GitHub username for which the graph is generated.</td>
+      <td>The GitHub username for which the graph is generated. If = `self`, it will return result for all public and private of the user to whom the Github token belongs.</td>
     </tr>
     <tr>
       <td><code>width</code></td>
