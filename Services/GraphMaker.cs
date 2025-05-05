@@ -25,7 +25,7 @@ public class GraphMaker
         // Calculate how many legend items can fit per row
         int itemsPerRow = Math.Max(1, (width - LegendPadding * 2) / lgItemWidth);
         int legendRows = (int)Math.Ceiling(Math.Min(languageStats.Count, lgItemMaxCnt) / (double)itemsPerRow);
-        int legendHeight = legendRows * LegendItemHeight + LegendPadding * 2;
+        int legendHeight = legendRows * LegendItemHeight; // No adding legend padding here because gaps are added in the loop
         
         // Create SVG builder
         var svgBuilder = new StringBuilder();
