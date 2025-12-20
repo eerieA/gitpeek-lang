@@ -8,14 +8,16 @@ namespace gitpeek_lang.Services;
 public class GraphMaker
 {
     private readonly LanguageColorService _colorService;
+    private readonly LanguageAliasService _aliasService;
     private const int LegendItemHeight = 25;
     private const int LegendPadding = 10;
-    public GraphMaker(LanguageColorService colorService)
+    public GraphMaker(LanguageColorService colorService, LanguageAliasService aliasService)
     {
         _colorService = colorService;
+        _aliasService = aliasService;
     }
 
-    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth, int lgItemMaxCnt, int fontSize)
+    public string GenerateSvgWithLegend(Dictionary<string, long> languageStats, int width, int barHeight, int lgItemWidth, int lgItemMaxCnt, int fontSize, int maxLabelLength = 0)
     {
         if (languageStats == null || languageStats.Count == 0)
             return string.Empty;
@@ -57,6 +59,17 @@ public class GraphMaker
 
             double percentage = (double)lines / totalLines;
             string color = GetColorForLanguage(language);
+
+            // Use alias (if provided) for display only
+            string displayName = _aliasService?.GetDisplayName(language) ?? language;
+
+            // Optionally truncate display name to avoid overlap when legend item width is limited
+            string truncatedName = displayName;
+            if (maxLabelLength > 0 && displayName.Length > maxLabelLength)
+            {
+                var effectiveLength = Math.Max(1, maxLabelLength - 1);
+                truncatedName = displayName.Substring(0, effectiveLength) + "…";
+            }
             
             // Calculate position for this legend item
             int itemX = LegendPadding + (currentCol * lgItemWidth);
@@ -67,10 +80,10 @@ public class GraphMaker
                 "<circle cx='{0}' cy='{1}' r='{2}' fill='{3}' />",
                 itemX+(fontSize/2), itemY+(fontSize/2), fontSize/2, color);
             
-            // Language name and percentage
+            // Language name and percentage (display alias here, possibly truncated)
             svgBuilder.AppendFormat(
                 "<text x='{0}' y='{1}' font-family='Arial, sans-serif' font-size='{4}'>{2} ({3:P1})</text>",
-                itemX + fontSize * 1.2, itemY + fontSize - fontSize*0.15, language, percentage, fontSize);
+                itemX + fontSize * 1.2, itemY + fontSize - fontSize*0.15, System.Net.WebUtility.HtmlEncode(truncatedName), percentage, fontSize);
             
             currentCol++;
             if (currentCol >= itemsPerRow)

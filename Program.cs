@@ -8,6 +8,7 @@ builder.Services.AddControllers();
 builder.Services.AddHttpClient<GitHubCaller>();
 builder.Services.AddTransient<GraphMaker>();
 builder.Services.AddSingleton<LanguageColorService>();
+builder.Services.AddSingleton<LanguageAliasService>();
 
 builder.WebHost.ConfigureKestrel(options => {
     options.ListenAnyIP(80);

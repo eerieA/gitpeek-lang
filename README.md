@@ -161,6 +161,8 @@ Azure CLI deployment command then can be:
 
 ## Local with docker
 
+Create a local `.env` and fill in needed env variable values like in `.env.example`.
+
 `docker-compose up --build`
 
 - `--build` is only necessary if there are source code changes.
@@ -171,6 +173,11 @@ Azure CLI deployment command then can be:
 # Appendices
 
 ## Appendix: Dev log
+<details>
+<summary>Dec 19, 2025: Added name alias service</summary>
+To make long language names shorter so that they don't overlap with the items on their right. Because column width is fixed.
+</details>
+
 <details>
 <summary>Jan 22, 2025: Deployment css and js files</summary>
 It seems we need to use smth like Libman to restore dependencies such as bootstrap.bundle.min.js before deploying through a provide like render.com. Also need to correct paths in `_Layout.cshtml`. Otherwise there will be 404s when retrieving them.

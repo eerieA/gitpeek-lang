@@ -11,7 +11,7 @@ namespace gitpeek_lang.Services;
 public class LanguageColorService
 {
     private static readonly string YamlUrl = "https://raw.githubusercontent.com/github-linguist/linguist/266912b913855446ec51c002985010dbe51c524a/lib/linguist/languages.yml";
-    private static readonly string LocalCachePath = "Cache/language_colors.json";
+    private static readonly string LocalCachePath = "Assets/language_colors.json";
 
     private Dictionary<string, string> _languageColors = new();
 
